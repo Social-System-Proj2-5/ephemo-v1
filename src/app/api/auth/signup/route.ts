@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { normalizeUsername, usernameToAuthEmail, validateUsername } from "@/lib/auth/username";
+import {
+  normalizeUsername,
+  usernameToAuthEmail,
+  validateUsername,
+} from "@/lib/auth/username";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 type SignupBody = {
@@ -36,6 +40,27 @@ export async function POST(request: Request) {
   }
 
   const authEmail = usernameToAuthEmail(username);
+  const { data: existingProfile, error: existingProfileError } =
+    await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("username", username)
+      .maybeSingle();
+
+  if (existingProfileError) {
+    return NextResponse.json(
+      { error: existingProfileError.message },
+      { status: 500 },
+    );
+  }
+
+  if (existingProfile) {
+    return NextResponse.json(
+      { error: "このユーザー名はすでに使われています。" },
+      { status: 409 },
+    );
+  }
+
   const { data: createdUser, error: createError } =
     await supabaseAdmin.auth.admin.createUser({
       email: authEmail,
@@ -77,6 +102,9 @@ export async function POST(request: Request) {
     });
 
   if (signInError || !sessionData.session) {
+    await supabaseAdmin.from("profiles").delete().eq("id", createdUser.user.id);
+    await supabaseAdmin.auth.admin.deleteUser(createdUser.user.id);
+
     return NextResponse.json(
       { error: signInError?.message ?? "ログインに失敗しました。" },
       { status: 400 },

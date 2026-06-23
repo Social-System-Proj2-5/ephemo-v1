@@ -24,9 +24,16 @@ export async function POST(request: Request) {
     .from("profiles")
     .select("id, username, display_name, auth_email")
     .eq("username", username)
-    .single();
+    .maybeSingle();
 
-  if (profileError || !profile?.auth_email) {
+  if (profileError) {
+    return NextResponse.json(
+      { error: profileError.message },
+      { status: 500 },
+    );
+  }
+
+  if (!profile) {
     return NextResponse.json(
       { error: "ユーザー名またはパスワードが違います。" },
       { status: 401 },
