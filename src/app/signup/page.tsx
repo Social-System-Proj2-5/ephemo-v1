@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase/client";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 type AuthResponse = {
   error?: string;
@@ -23,6 +23,7 @@ export default function SignupPage() {
 
   useEffect(() => {
     async function redirectAuthenticatedUser() {
+      const supabase = getSupabaseClient();
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -32,7 +33,9 @@ export default function SignupPage() {
       }
     }
 
-    redirectAuthenticatedUser();
+    redirectAuthenticatedUser().catch((error: unknown) => {
+      setMessage(error instanceof Error ? error.message : "設定エラーです。");
+    });
   }, [router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -53,6 +56,7 @@ export default function SignupPage() {
       return;
     }
 
+    const supabase = getSupabaseClient();
     const { error } = await supabase.auth.setSession({
       access_token: result.session.access_token,
       refresh_token: result.session.refresh_token,

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase/client";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 const recentItems = [
   { title: "京都の朝ごはん", type: "写真", date: "2026.06.21" },
@@ -19,6 +19,7 @@ export default function Home() {
     let isMounted = true;
 
     async function checkSession() {
+      const supabase = getSupabaseClient();
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -35,7 +36,9 @@ export default function Home() {
       setIsCheckingSession(false);
     }
 
-    checkSession();
+    checkSession().catch(() => {
+      router.replace("/login");
+    });
 
     return () => {
       isMounted = false;
@@ -61,6 +64,7 @@ export default function Home() {
           <button
             className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-100"
             onClick={async () => {
+              const supabase = getSupabaseClient();
               await supabase.auth.signOut();
               router.replace("/login");
             }}
