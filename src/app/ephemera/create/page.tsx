@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Moveable from "react-moveable";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import type {
   OnDrag,
   OnDragStart,
@@ -15,7 +16,7 @@ import type {
 type BaseId = "receipt" | "ticket" | "card";
 type AssetType = "image" | "stamp";
 type LayerType = "text" | AssetType;
-type SaveFormat = "jpeg" | "pdf";
+type SaveFormat = "png" | "pdf";
 
 type PdfTextLine = {
   text: string;
@@ -428,6 +429,7 @@ export default function ScrapbookPage() {
     "image",
     "stamp",
   ]);
+  const [uploadedAssets, setUploadedAssets] = useState<EphemeraAsset[]>([]);
   const [previewAssetId, setPreviewAssetId] = useState<string | null>(null);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [ephemeraName, setEphemeraName] = useState("");
@@ -442,9 +444,12 @@ export default function ScrapbookPage() {
   const [nextZIndex, setNextZIndex] = useState(2);
   const [canUndo, setCanUndo] = useState(false);
   const boardRef = useRef<HTMLDivElement | null>(null);
+  const imageUploadInputRef = useRef<HTMLInputElement | null>(null);
   const layerRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const moveableRef = useRef<MoveableHandle | null>(null);
   const nextLayerId = useRef(2);
+  const nextUploadedAssetId = useRef(1);
+  const uploadedObjectUrls = useRef<string[]>([]);
   const resizeStartDraft = useRef<InteractionDraft | null>(null);
   const interactionDraft = useRef<InteractionDraft | null>(null);
   const interactionUndoSnapshot = useRef<EditorSnapshot | null>(null);
@@ -468,18 +473,33 @@ export default function ScrapbookPage() {
     });
   }, [isSaveDialogOpen]);
 
+  useEffect(() => {
+    const objectUrls = uploadedObjectUrls.current;
+
+    return () => {
+      objectUrls.forEach((url) => {
+        URL.revokeObjectURL(url);
+      });
+    };
+  }, []);
+
   const selectedBase = bases.find((base) => base.id === selectedBaseId) ?? bases[0];
 
+  const assets = useMemo(
+    () => [...mockAssets, ...uploadedAssets],
+    [uploadedAssets],
+  );
+
   const assetsById = useMemo(
-    () => new Map(mockAssets.map((asset) => [asset.id, asset])),
-    [],
+    () => new Map(assets.map((asset) => [asset.id, asset])),
+    [assets],
   );
 
   const assetsByType = useMemo(
     () =>
       assetTypeOrder.reduce<Record<AssetType, EphemeraAsset[]>>(
         (groupedAssets, type) => {
-          groupedAssets[type] = mockAssets.filter((asset) => asset.type === type);
+          groupedAssets[type] = assets.filter((asset) => asset.type === type);
           return groupedAssets;
         },
         {
@@ -487,7 +507,7 @@ export default function ScrapbookPage() {
           stamp: [],
         },
       ),
-    [],
+    [assets],
   );
 
   const previewAsset = previewAssetId
@@ -649,6 +669,70 @@ export default function ScrapbookPage() {
     ]);
     setSelectedId(id);
     setNextZIndex((value) => value + 1);
+  }
+
+  async function uploadImageAssets(files: FileList | null) {
+    if (!files?.length) {
+      return;
+    }
+
+    const imageFiles = Array.from(files).filter((file) =>
+      file.type.startsWith("image/"),
+    );
+
+    if (imageFiles.length === 0) {
+      return;
+    }
+
+    const nextAssets = await Promise.all(
+      imageFiles.map(
+        (file) =>
+          new Promise<EphemeraAsset>((resolve) => {
+            const mediaSrc = URL.createObjectURL(file);
+            const id = `uploaded-image-${nextUploadedAssetId.current}`;
+            nextUploadedAssetId.current += 1;
+            uploadedObjectUrls.current.push(mediaSrc);
+
+            const image = new Image();
+            image.onload = () => {
+              const ratio = image.naturalWidth / image.naturalHeight;
+              const width = 220;
+              const height = Math.max(80, Math.round(width / ratio));
+
+              resolve({
+                id,
+                type: "image",
+                title: file.name.replace(/\.[^.]+$/, ""),
+                description: "アップロード画像",
+                accent: "bg-[#9fb6c9]",
+                mediaSrc,
+                defaultSize: { width, height },
+              });
+            };
+            image.onerror = () => {
+              resolve({
+                id,
+                type: "image",
+                title: file.name.replace(/\.[^.]+$/, ""),
+                description: "アップロード画像",
+                accent: "bg-[#9fb6c9]",
+                mediaSrc,
+                defaultSize: { width: 220, height: 160 },
+              });
+            };
+            image.src = mediaSrc;
+          }),
+      ),
+    );
+
+    setUploadedAssets((current) => [...current, ...nextAssets]);
+    setExpandedAssetTypes((current) =>
+      current.includes("image") ? current : [...current, "image"],
+    );
+
+    if (imageUploadInputRef.current) {
+      imageUploadInputRef.current.value = "";
+    }
   }
 
   function deleteSelectedLayer() {
@@ -823,7 +907,7 @@ export default function ScrapbookPage() {
     setIsSaveDialogOpen(false);
   }
 
-  async function createEphemeraJpegBlob() {
+  async function createEphemeraImageBlob(type: "image/jpeg" | "image/png") {
     const canvas = document.createElement("canvas");
     canvas.width = exportSize.width;
     canvas.height = exportSize.height;
@@ -831,7 +915,7 @@ export default function ScrapbookPage() {
     const context = canvas.getContext("2d");
 
     if (!context) {
-      throw new Error("JPEGを書き出せませんでした。");
+      throw new Error("画像を書き出せませんでした。");
     }
 
     const boardWidth = boardRef.current?.clientWidth || 760;
@@ -905,14 +989,14 @@ export default function ScrapbookPage() {
       canvas.toBlob(
         (blob) => {
           if (!blob) {
-            reject(new Error("JPEGを書き出せませんでした。"));
+            reject(new Error("画像を書き出せませんでした。"));
             return;
           }
 
           resolve(blob);
         },
-        "image/jpeg",
-        0.92,
+        type,
+        type === "image/jpeg" ? 0.92 : undefined,
       );
     });
   }
@@ -997,13 +1081,28 @@ export default function ScrapbookPage() {
     setExportError(null);
 
     try {
-      const jpegBlob = await createEphemeraJpegBlob();
+      const supabase = getSupabaseClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        throw new Error("ログインが必要です。");
+      }
+
+      const imageBlob = await createEphemeraImageBlob(
+        format === "pdf" ? "image/jpeg" : "image/png",
+      );
       const formData = new FormData();
       formData.append("name", trimmedName);
       formData.append("format", format);
       formData.append("width", String(exportSize.width));
       formData.append("height", String(exportSize.height));
-      formData.append("file", jpegBlob, `${sanitizeFileName(trimmedName)}.jpg`);
+      formData.append(
+        "file",
+        imageBlob,
+        `${sanitizeFileName(trimmedName)}.${format === "pdf" ? "jpg" : "png"}`,
+      );
 
       if (format === "pdf") {
         formData.append("textLayers", JSON.stringify(createPdfTextLines()));
@@ -1011,11 +1110,18 @@ export default function ScrapbookPage() {
 
       const response = await fetch("/api/ephemera/save-image", {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error("保存に失敗しました。");
+        const result = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+
+        throw new Error(result?.error ?? "保存に失敗しました。");
       }
 
       const result = (await response.json()) as { url?: string };
@@ -1023,8 +1129,12 @@ export default function ScrapbookPage() {
       setSavedEphemeraName(trimmedName);
       setSavedEphemeraUrl(result.url ?? null);
       setIsSaveDialogOpen(false);
-    } catch {
-      setExportError("保存に失敗しました。もう一度試してください。");
+    } catch (error) {
+      setExportError(
+        error instanceof Error
+          ? error.message
+          : "保存に失敗しました。もう一度試してください。",
+      );
     } finally {
       setIsExporting(false);
       setExportingFormat(null);
@@ -1178,7 +1288,7 @@ export default function ScrapbookPage() {
                   </p>
                 </div>
                 <span className="text-xs font-medium text-stone-500">
-                  {mockAssets.length}件
+                  {assets.length}件
                 </span>
               </div>
 
@@ -1189,6 +1299,17 @@ export default function ScrapbookPage() {
               >
                 テキストを追加
               </button>
+
+              <input
+                ref={imageUploadInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(event) => {
+                  void uploadImageAssets(event.target.files);
+                }}
+                className="hidden"
+              />
 
               <div className="mt-4 space-y-2">
                 {assetTypeOrder.map((type) => {
@@ -1217,7 +1338,7 @@ export default function ScrapbookPage() {
                         <span className="flex min-w-0 items-center gap-3">
                           <span
                             className={`h-3 w-3 shrink-0 rounded-full ${
-                              mockAssets.find((asset) => asset.type === type)
+                              assets.find((asset) => asset.type === type)
                                 ?.accent ?? "bg-stone-300"
                             }`}
                           />
@@ -1241,7 +1362,23 @@ export default function ScrapbookPage() {
 
                       {isExpanded && (
                         <div className="space-y-2 border-t border-stone-200 bg-stone-50 p-2">
-                          <div className="grid grid-cols-4 gap-2">
+                          <div
+                            className={`grid gap-2 ${
+                              type === "stamp" ? "grid-cols-5" : "grid-cols-4"
+                            }`}
+                          >
+                            {type === "image" && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  imageUploadInputRef.current?.click();
+                                }}
+                                className="flex aspect-square w-full items-center justify-center rounded-md border border-dashed border-stone-300 bg-white text-2xl font-medium text-stone-500 transition hover:border-emerald-700 hover:text-emerald-700"
+                                aria-label="画像をアップロード"
+                              >
+                                +
+                              </button>
+                            )}
                             {categoryAssets.map((asset) => {
                               const isPreviewed = previewAssetId === asset.id;
 
@@ -1266,7 +1403,7 @@ export default function ScrapbookPage() {
                                       alt=""
                                       className={`h-full w-full ${
                                         asset.type === "stamp"
-                                          ? "object-contain p-1"
+                                          ? "object-contain p-2"
                                           : "object-cover"
                                       }`}
                                       draggable={false}
@@ -1979,7 +2116,7 @@ export default function ScrapbookPage() {
           <form
             onSubmit={(event) => {
               event.preventDefault();
-              void saveEphemera("jpeg");
+              void saveEphemera("png");
             }}
             className="w-full max-w-md rounded-lg border border-stone-200 bg-white p-5 shadow-xl"
           >
@@ -2035,7 +2172,7 @@ export default function ScrapbookPage() {
                 disabled={!ephemeraName.trim() || isExporting}
                 className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {exportingFormat === "jpeg" ? "JPEG保存中" : "JPEGで保存"}
+                {exportingFormat === "png" ? "PNG保存中" : "PNGで保存"}
               </button>
               <button
                 type="button"

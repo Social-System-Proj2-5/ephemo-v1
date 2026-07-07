@@ -1,9 +1,10 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
-type SaveFormat = "jpeg" | "pdf";
+type SaveFormat = "png" | "pdf";
+
+const ephemeraBucket = "ephemeras";
 
 type PdfTextLine = {
   text: string;
@@ -180,19 +181,32 @@ export async function POST(request: Request) {
   const width = Number(formData.get("width") ?? 1448);
   const height = Number(formData.get("height") ?? 1086);
   const textLayers = formData.get("textLayers");
+  const authorization = request.headers.get("authorization");
+  const token = authorization?.startsWith("Bearer ")
+    ? authorization.slice("Bearer ".length)
+    : null;
 
-  if (!(file instanceof File)) {
-    return Response.json({ error: "JPEG file is required." }, { status: 400 });
+  if (!token) {
+    return Response.json({ error: "Authorization token is required." }, { status: 401 });
   }
 
-  const saveFormat: SaveFormat = format === "pdf" ? "pdf" : "jpeg";
+  const { data: userData, error: userError } =
+    await supabaseAdmin.auth.getUser(token);
+
+  if (userError || !userData.user) {
+    return Response.json({ error: "Invalid authorization token." }, { status: 401 });
+  }
+
+  if (!(file instanceof File)) {
+    return Response.json({ error: "Image file is required." }, { status: 400 });
+  }
+
+  const saveFormat: SaveFormat = format === "pdf" ? "pdf" : "png";
   const safeName = sanitizeFileName(typeof name === "string" ? name : "");
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const extension = saveFormat === "pdf" ? "pdf" : "jpg";
+  const extension = saveFormat === "pdf" ? "pdf" : "png";
   const fileName = `${safeName}-${timestamp}.${extension}`;
-  const relativePath = path.join("ephemera", "saved", fileName);
-  const saveDirectory = path.join(process.cwd(), "public", "ephemera", "saved");
-  const savePath = path.join(saveDirectory, fileName);
+  const storagePath = `${userData.user.id}/${fileName}`;
   const bytes = Buffer.from(await file.arrayBuffer());
   const parsedTextLayers =
     saveFormat === "pdf" ? parseTextLayers(textLayers) : [];
@@ -201,11 +215,48 @@ export async function POST(request: Request) {
       ? createPdfFromJpeg(bytes, width, height, parsedTextLayers)
       : bytes;
 
-  await mkdir(saveDirectory, { recursive: true });
-  await writeFile(savePath, outputBytes);
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from(ephemeraBucket)
+    .upload(storagePath, outputBytes, {
+      contentType: saveFormat === "pdf" ? "application/pdf" : "image/png",
+      upsert: false,
+    });
+
+  if (uploadError) {
+    return Response.json({ error: uploadError.message }, { status: 500 });
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabaseAdmin.storage.from(ephemeraBucket).getPublicUrl(storagePath);
+
+  const now = new Date();
+  const expiresAt = new Date(now);
+  expiresAt.setDate(now.getDate() + 7);
+
+  const { data: ephemera, error: insertError } = await supabaseAdmin
+    .from("ephemeras")
+    .insert({
+      owner_profile_id: userData.user.id,
+      creator_profile_id: userData.user.id,
+      title: safeName,
+      file_type: saveFormat === "pdf" ? "pdf" : "image",
+      file_url: publicUrl,
+      expires_at: expiresAt.toISOString(),
+    })
+    .select("id, file_url, expires_at")
+    .single();
+
+  if (insertError) {
+    await supabaseAdmin.storage.from(ephemeraBucket).remove([storagePath]);
+
+    return Response.json({ error: insertError.message }, { status: 500 });
+  }
 
   return Response.json({
+    ephemeraId: ephemera.id,
     fileName,
-    url: `/${relativePath.replaceAll(path.sep, "/")}`,
+    url: ephemera.file_url,
+    expiresAt: ephemera.expires_at,
   });
 }
