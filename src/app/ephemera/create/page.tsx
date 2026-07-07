@@ -12,7 +12,26 @@ import type {
   OnRotateStart,
 } from "react-moveable";
 
-type AssetType = "ephemera" | "photo" | "video" | "audio" | "stamp";
+type BaseId = "receipt" | "ticket" | "card";
+type AssetType = "image" | "stamp";
+type LayerType = "text" | AssetType;
+type SaveFormat = "jpeg" | "pdf";
+
+type PdfTextLine = {
+  text: string;
+  x: number;
+  y: number;
+  fontSize: number;
+  rotation: number;
+};
+
+type EphemeraBase = {
+  id: BaseId;
+  title: string;
+  description: string;
+  accent: string;
+  imageSrc: string;
+};
 
 type EphemeraAsset = {
   id: string;
@@ -21,15 +40,24 @@ type EphemeraAsset = {
   description: string;
   accent: string;
   mediaSrc?: string;
+  label?: string;
   defaultSize: {
     width: number;
     height: number;
   };
 };
 
-type PlacedAsset = {
+type EphemeraLayer = {
   id: string;
-  assetId: string;
+  type: LayerType;
+  assetId?: string;
+  text?: string;
+  color?: string;
+  fontSize?: number;
+  fontFamily?: string;
+  fontWeight?: "500" | "700";
+  fontStyle?: "normal" | "italic";
+  textAlign?: "left" | "center" | "right";
   x: number;
   y: number;
   width: number;
@@ -51,88 +79,73 @@ type MoveableHandle = {
   updateRect: () => void;
 };
 
-type EphemeraSnapshot = {
-  placedAssets: PlacedAsset[];
+type EditorSnapshot = {
+  layers: EphemeraLayer[];
   selectedId: string | null;
+  selectedBaseId: BaseId;
   nextZIndex: number;
-  nextPlacedId: number;
+  nextLayerId: number;
 };
+
+const exportSize = {
+  width: 1448,
+  height: 1086,
+};
+
+const bases: EphemeraBase[] = [
+  {
+    id: "receipt",
+    title: "レシート",
+    description: "アップロード済みのレシート型テンプレート",
+    accent: "bg-[#d8c7a8]",
+    imageSrc: "/ephemera/templates/template_receipt.png",
+  },
+  {
+    id: "ticket",
+    title: "チケット",
+    description: "アップロード済みのチケット型テンプレート",
+    accent: "bg-[#c9d7d2]",
+    imageSrc: "/ephemera/templates/template_ticket.png",
+  },
+  {
+    id: "card",
+    title: "タグ",
+    description: "アップロード済みのタグ型テンプレート",
+    accent: "bg-[#d5c7da]",
+    imageSrc: "/ephemera/templates/template_tag.png",
+  },
+];
 
 const mockAssets: EphemeraAsset[] = [
   {
     id: "sample-image",
-    type: "photo",
+    type: "image",
     title: "サンプル画像",
-    description: "image_sample.jpg",
-    accent: "bg-[#9fb6c9]",
-    mediaSrc: "/image_sample.jpg",
-    defaultSize: { width: 240, height: 180 },
-  },
-  {
-    id: "ticket-kyoto",
-    type: "ephemera",
-    title: "京都の朝の切符",
-    description: "日付と場所が残った紙片",
-    accent: "bg-[#d9c8a9]",
-    defaultSize: { width: 190, height: 128 },
-  },
-  {
-    id: "photo-rain",
-    type: "photo",
-    title: "雨の日の写真",
-    description: "路地の光を写した一枚",
+    description: "エフェメラに重ねる写真素材",
     accent: "bg-[#9fb6c9]",
     mediaSrc: "/image_sample.jpg",
     defaultSize: { width: 220, height: 160 },
   },
   {
-    id: "video-station",
-    type: "video",
-    title: "駅前の短い動画",
-    description: "10秒の記録映像",
-    accent: "bg-[#bea7d8]",
-    defaultSize: { width: 196, height: 116 },
-  },
-  {
-    id: "audio-voice",
-    type: "audio",
-    title: "街角の音声メモ",
-    description: "会話と環境音",
-    accent: "bg-[#a7c7b5]",
-    defaultSize: { width: 210, height: 96 },
-  },
-  {
-    id: "stamp-star",
+    id: "stamp-visited",
     type: "stamp",
-    title: "星のスタンプ",
-    description: "強調用の小さな印",
-    accent: "bg-[#f0c56d]",
-    defaultSize: { width: 96, height: 96 },
+    title: "Visited",
+    description: "訪問記録のスタンプ",
+    accent: "bg-[#df8f7b]",
+    mediaSrc: "/ephemera/stamps/stamp_visited.png",
+    defaultSize: { width: 128, height: 128 },
   },
 ];
 
-async function fetchEphemeraAssets() {
-  return mockAssets;
-}
-
 const assetTypeLabels: Record<AssetType, string> = {
-  ephemera: "エフェメラ",
-  photo: "画像",
-  video: "動画",
-  audio: "音声",
+  image: "画像",
   stamp: "スタンプ",
 };
 
-const assetTypeOrder: AssetType[] = [
-  "ephemera",
-  "photo",
-  "video",
-  "audio",
-  "stamp",
-];
+const assetTypeOrder: AssetType[] = ["image", "stamp"];
 
 function clampSize(value: number) {
-  return Math.max(48, Math.round(value));
+  return Math.max(36, Math.round(value));
 }
 
 function normalizeRotation(value: number) {
@@ -167,13 +180,13 @@ function getAspectLockedSize(
     nextWidth = Math.round(nextHeight * ratio);
   }
 
-  if (nextWidth < 48) {
-    nextWidth = 48;
+  if (nextWidth < 36) {
+    nextWidth = 36;
     nextHeight = Math.round(nextWidth / ratio);
   }
 
-  if (nextHeight < 48) {
-    nextHeight = 48;
+  if (nextHeight < 36) {
+    nextHeight = 36;
     nextWidth = Math.round(nextHeight * ratio);
   }
 
@@ -196,82 +209,220 @@ function applyElementLayout(
   target.style.transform = `translate(${layout.x}px, ${layout.y}px) rotate(${layout.rotation}deg)`;
 }
 
-export default function EphemeraCreatePage() {
-  const [assets, setAssets] = useState<EphemeraAsset[]>(mockAssets);
-  const [placedAssets, setPlacedAssets] = useState<PlacedAsset[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+function cloneLayers(items: EphemeraLayer[]) {
+  return items.map((item) => ({ ...item }));
+}
+
+function loadCanvasImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      resolve(image);
+    };
+    image.onerror = reject;
+    image.src = src;
+  });
+}
+
+function drawImageCover(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) {
+  const sourceRatio = image.naturalWidth / image.naturalHeight;
+  const targetRatio = width / height;
+  let sourceWidth = image.naturalWidth;
+  let sourceHeight = image.naturalHeight;
+  let sourceX = 0;
+  let sourceY = 0;
+
+  if (sourceRatio > targetRatio) {
+    sourceWidth = image.naturalHeight * targetRatio;
+    sourceX = (image.naturalWidth - sourceWidth) / 2;
+  } else {
+    sourceHeight = image.naturalWidth / targetRatio;
+    sourceY = (image.naturalHeight - sourceHeight) / 2;
+  }
+
+  context.drawImage(
+    image,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    x,
+    y,
+    width,
+    height,
+  );
+}
+
+function drawImageContain(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) {
+  const scale = Math.min(width / image.naturalWidth, height / image.naturalHeight);
+  const drawWidth = image.naturalWidth * scale;
+  const drawHeight = image.naturalHeight * scale;
+
+  context.drawImage(
+    image,
+    x + (width - drawWidth) / 2,
+    y + (height - drawHeight) / 2,
+    drawWidth,
+    drawHeight,
+  );
+}
+
+function wrapText(
+  context: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+) {
+  return text
+    .split("\n")
+    .flatMap((paragraph) => {
+      const characters = Array.from(paragraph);
+      const lines: string[] = [];
+      let line = "";
+
+      characters.forEach((character) => {
+        const candidate = `${line}${character}`;
+
+        if (line && context.measureText(candidate).width > maxWidth) {
+          lines.push(line);
+          line = character;
+          return;
+        }
+
+        line = candidate;
+      });
+
+      return lines.length || line ? [...lines, line] : [""];
+    });
+}
+
+function sanitizeFileName(value: string) {
+  const sanitized = value
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, "-")
+    .replace(/\s+/g, "-");
+
+  return sanitized || "ephemera";
+}
+
+export default function ScrapbookPage() {
+  const [selectedBaseId, setSelectedBaseId] = useState<BaseId>("receipt");
+  const [layers, setLayers] = useState<EphemeraLayer[]>([
+    {
+      id: "text-1",
+      type: "text",
+      text: "今日だけの記録",
+      color: "#2b241f",
+      fontSize: 24,
+      fontFamily: "serif",
+      fontWeight: "700",
+      fontStyle: "normal",
+      textAlign: "center",
+      x: 72,
+      y: 64,
+      width: 260,
+      height: 56,
+      rotation: 0,
+      zIndex: 1,
+    },
+  ]);
+  const [selectedId, setSelectedId] = useState<string | null>("text-1");
   const [selectedTarget, setSelectedTarget] = useState<HTMLDivElement | null>(
     null,
   );
-  const [expandedAssetTypes, setExpandedAssetTypes] = useState<AssetType[]>([]);
+  const [expandedAssetTypes, setExpandedAssetTypes] = useState<AssetType[]>([
+    "image",
+    "stamp",
+  ]);
   const [previewAssetId, setPreviewAssetId] = useState<string | null>(null);
-  const [nextZIndex, setNextZIndex] = useState(1);
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
+  const [ephemeraName, setEphemeraName] = useState("");
+  const [savedEphemeraName, setSavedEphemeraName] = useState<string | null>(null);
+  const [savedEphemeraUrl, setSavedEphemeraUrl] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportingFormat, setExportingFormat] = useState<SaveFormat | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [editingTextLayerId, setEditingTextLayerId] = useState<string | null>(
+    null,
+  );
+  const [nextZIndex, setNextZIndex] = useState(2);
   const [canUndo, setCanUndo] = useState(false);
-  const assetRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const boardRef = useRef<HTMLDivElement | null>(null);
+  const layerRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const moveableRef = useRef<MoveableHandle | null>(null);
-  const nextPlacedId = useRef(1);
+  const nextLayerId = useRef(2);
   const resizeStartDraft = useRef<InteractionDraft | null>(null);
   const interactionDraft = useRef<InteractionDraft | null>(null);
-  const interactionUndoSnapshot = useRef<EphemeraSnapshot | null>(null);
-  const undoStack = useRef<EphemeraSnapshot[]>([]);
+  const interactionUndoSnapshot = useRef<EditorSnapshot | null>(null);
+  const textEditUndoSnapshot = useRef<EditorSnapshot | null>(null);
+  const textEditDraft = useRef<{ id: string; text: string } | null>(null);
+  const saveNameInputRef = useRef<HTMLInputElement | null>(null);
+  const undoStack = useRef<EditorSnapshot[]>([]);
 
   useEffect(() => {
-    let active = true;
+    setSelectedTarget(selectedId ? layerRefs.current[selectedId] ?? null : null);
+  }, [selectedId, layers.length]);
 
-    fetchEphemeraAssets().then((items) => {
-      if (active) {
-        setAssets(items);
-      }
+  useEffect(() => {
+    if (!isSaveDialogOpen) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      saveNameInputRef.current?.focus();
+      saveNameInputRef.current?.select();
     });
+  }, [isSaveDialogOpen]);
 
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    setSelectedTarget(selectedId ? assetRefs.current[selectedId] ?? null : null);
-  }, [selectedId, placedAssets.length]);
+  const selectedBase = bases.find((base) => base.id === selectedBaseId) ?? bases[0];
 
   const assetsById = useMemo(
-    () => new Map(assets.map((asset) => [asset.id, asset])),
-    [assets],
+    () => new Map(mockAssets.map((asset) => [asset.id, asset])),
+    [],
   );
 
   const assetsByType = useMemo(
     () =>
       assetTypeOrder.reduce<Record<AssetType, EphemeraAsset[]>>(
         (groupedAssets, type) => {
-          groupedAssets[type] = assets.filter((asset) => asset.type === type);
+          groupedAssets[type] = mockAssets.filter((asset) => asset.type === type);
           return groupedAssets;
         },
         {
-          ephemera: [],
-          photo: [],
-          video: [],
-          audio: [],
+          image: [],
           stamp: [],
         },
       ),
-    [assets],
+    [],
   );
 
   const previewAsset = previewAssetId
     ? assetsById.get(previewAssetId) ?? null
     : null;
+  const selectedLayer = selectedId
+    ? layers.find((layer) => layer.id === selectedId) ?? null
+    : null;
 
-  function clonePlacedAssets(items: PlacedAsset[]) {
-    return items.map((item) => ({ ...item }));
-  }
-
-  function createSnapshot(
-    currentPlacedAssets = placedAssets,
-  ): EphemeraSnapshot {
+  function createSnapshot(currentLayers = layers): EditorSnapshot {
     return {
-      placedAssets: clonePlacedAssets(currentPlacedAssets),
+      layers: cloneLayers(currentLayers),
       selectedId,
+      selectedBaseId,
       nextZIndex,
-      nextPlacedId: nextPlacedId.current,
+      nextLayerId: nextLayerId.current,
     };
   }
 
@@ -288,16 +439,20 @@ export default function EphemeraCreatePage() {
     }
 
     undoStack.current = undoStack.current.slice(0, -1);
-    setPlacedAssets(clonePlacedAssets(snapshot.placedAssets));
+    setLayers(cloneLayers(snapshot.layers));
     setSelectedId(snapshot.selectedId);
+    setSelectedBaseId(snapshot.selectedBaseId);
     setSelectedTarget(
-      snapshot.selectedId ? assetRefs.current[snapshot.selectedId] ?? null : null,
+      snapshot.selectedId ? layerRefs.current[snapshot.selectedId] ?? null : null,
     );
     setNextZIndex(snapshot.nextZIndex);
-    nextPlacedId.current = snapshot.nextPlacedId;
+    nextLayerId.current = snapshot.nextLayerId;
     resizeStartDraft.current = null;
     interactionDraft.current = null;
     interactionUndoSnapshot.current = null;
+    textEditUndoSnapshot.current = null;
+    textEditDraft.current = null;
+    setEditingTextLayerId(null);
     setCanUndo(undoStack.current.length > 0);
 
     requestAnimationFrame(() => {
@@ -305,14 +460,12 @@ export default function EphemeraCreatePage() {
     });
   }
 
-  function updatePlacedAsset(
+  function updateLayer(
     id: string,
-    changes: Partial<Omit<PlacedAsset, "id" | "assetId">>,
+    changes: Partial<Omit<EphemeraLayer, "id" | "type" | "assetId">>,
   ) {
-    setPlacedAssets((current) =>
-      current.map((item) =>
-        item.id === id ? { ...item, ...changes } : item,
-      ),
+    setLayers((current) =>
+      current.map((item) => (item.id === id ? { ...item, ...changes } : item)),
     );
   }
 
@@ -323,7 +476,7 @@ export default function EphemeraCreatePage() {
       return;
     }
 
-    const currentItem = placedAssets.find((item) => item.id === draft.id);
+    const currentItem = layers.find((item) => item.id === draft.id);
     const hasChanged =
       currentItem &&
       (currentItem.x !== draft.x ||
@@ -336,7 +489,7 @@ export default function EphemeraCreatePage() {
       pushUndoSnapshot(interactionUndoSnapshot.current ?? createSnapshot());
     }
 
-    updatePlacedAsset(draft.id, {
+    updateLayer(draft.id, {
       x: draft.x,
       y: draft.y,
       width: draft.width,
@@ -347,73 +500,111 @@ export default function EphemeraCreatePage() {
     interactionUndoSnapshot.current = null;
   }
 
-  function selectPlacedAsset(id: string) {
+  function selectLayer(id: string) {
     setSelectedId(id);
-    setSelectedTarget(assetRefs.current[id] ?? null);
+    setSelectedTarget(layerRefs.current[id] ?? null);
   }
 
-  function addAssetToBoard(asset: EphemeraAsset) {
+  function changeBase(id: BaseId) {
+    if (id === selectedBaseId) {
+      return;
+    }
+
+    pushUndoSnapshot();
+    setSelectedBaseId(id);
+  }
+
+  function addTextLayer() {
     pushUndoSnapshot();
 
-    const id = `${asset.id}-${nextPlacedId.current}`;
+    const id = `text-${nextLayerId.current}`;
     const zIndex = nextZIndex;
-    nextPlacedId.current += 1;
+    nextLayerId.current += 1;
 
-    setPlacedAssets((current) => {
-      const count = current.length;
-      const newItem: PlacedAsset = {
+    setLayers((current) => [
+      ...current,
+      {
         id,
-        assetId: asset.id,
-        x: 56 + (count % 4) * 28,
-        y: 48 + (count % 5) * 24,
-        width: asset.defaultSize.width,
-        height: asset.defaultSize.height,
-        rotation: asset.type === "stamp" ? 352 : 0,
+        type: "text",
+        text: "新しいテキスト",
+        color: "#2b241f",
+        fontSize: 20,
+        fontFamily: "serif",
+        fontWeight: "700",
+        fontStyle: "normal",
+        textAlign: "center",
+        x: 80 + (current.length % 4) * 18,
+        y: 96 + (current.length % 5) * 18,
+        width: 220,
+        height: 48,
+        rotation: 0,
         zIndex,
-      };
-
-      return [...current, newItem];
-    });
+      },
+    ]);
     setSelectedId(id);
     setNextZIndex((value) => value + 1);
   }
 
-  function deleteSelectedAsset() {
+  function addAssetLayer(asset: EphemeraAsset) {
+    pushUndoSnapshot();
+
+    const id = `${asset.id}-${nextLayerId.current}`;
+    const zIndex = nextZIndex;
+    nextLayerId.current += 1;
+
+    setLayers((current) => [
+      ...current,
+      {
+        id,
+        type: asset.type,
+        assetId: asset.id,
+        x: 88 + (current.length % 4) * 22,
+        y: 124 + (current.length % 5) * 18,
+        width: asset.defaultSize.width,
+        height: asset.defaultSize.height,
+        rotation: asset.type === "stamp" ? 352 : 0,
+        zIndex,
+      },
+    ]);
+    setSelectedId(id);
+    setNextZIndex((value) => value + 1);
+  }
+
+  function deleteSelectedLayer() {
     if (!selectedId) {
       return;
     }
 
     pushUndoSnapshot();
 
-    delete assetRefs.current[selectedId];
-    setPlacedAssets((current) =>
-      current.filter((item) => item.id !== selectedId),
-    );
+    delete layerRefs.current[selectedId];
+    setLayers((current) => current.filter((item) => item.id !== selectedId));
     setSelectedId(null);
     setSelectedTarget(null);
     resizeStartDraft.current = null;
     interactionDraft.current = null;
+    textEditUndoSnapshot.current = null;
+    textEditDraft.current = null;
+    setEditingTextLayerId(null);
   }
 
-  function reorderSelectedAsset(
+  function reorderSelectedLayer(
     direction: "front" | "forward" | "backward" | "back",
   ) {
     if (!selectedId) {
       return;
     }
 
-    const sortedAssets = [...placedAssets].sort(
+    const sortedLayers = [...layers].sort(
       (first, second) => first.zIndex - second.zIndex,
     );
-    const currentIndex = sortedAssets.findIndex(
-      (item) => item.id === selectedId,
-    );
+    const currentIndex = sortedLayers.findIndex((item) => item.id === selectedId);
 
     if (currentIndex === -1) {
       return;
     }
 
-    const nextOrder = [...sortedAssets];
+    const nextOrder = [...sortedLayers];
     const [selectedItem] = nextOrder.splice(currentIndex, 1);
 
     if (!selectedItem) {
@@ -437,7 +628,7 @@ export default function EphemeraCreatePage() {
     }
 
     pushUndoSnapshot();
-    setPlacedAssets(
+    setLayers(
       nextOrder.map((item, index) => ({
         ...item,
         zIndex: index + 1,
@@ -446,14 +637,14 @@ export default function EphemeraCreatePage() {
     setNextZIndex(nextOrder.length + 1);
   }
 
-  function moveSelectedAsset(deltaX: number, deltaY: number) {
+  function moveSelectedLayer(deltaX: number, deltaY: number) {
     if (!selectedId) {
       return;
     }
 
     pushUndoSnapshot();
 
-    setPlacedAssets((current) =>
+    setLayers((current) =>
       current.map((item) => {
         if (item.id !== selectedId) {
           return item;
@@ -465,7 +656,7 @@ export default function EphemeraCreatePage() {
           y: item.y + deltaY,
         };
 
-        applyElementLayout(assetRefs.current[item.id], nextItem);
+        applyElementLayout(layerRefs.current[item.id], nextItem);
         requestAnimationFrame(() => {
           moveableRef.current?.updateRect();
         });
@@ -473,6 +664,290 @@ export default function EphemeraCreatePage() {
         return nextItem;
       }),
     );
+  }
+
+  function updateSelectedText(changes: Partial<EphemeraLayer>) {
+    if (!selectedLayer || selectedLayer.type !== "text") {
+      return;
+    }
+
+    pushUndoSnapshot();
+    updateLayer(selectedLayer.id, changes);
+
+    requestAnimationFrame(() => {
+      moveableRef.current?.updateRect();
+    });
+  }
+
+  function beginTextEditing(id: string) {
+    const layer = layers.find((item) => item.id === id);
+
+    if (!layer || layer.type !== "text") {
+      return;
+    }
+
+    selectLayer(id);
+    textEditUndoSnapshot.current = createSnapshot();
+    textEditDraft.current = { id, text: layer.text ?? "" };
+    setEditingTextLayerId(id);
+
+    requestAnimationFrame(() => {
+      layerRefs.current[id]
+        ?.querySelector<HTMLElement>("[data-text-editor]")
+        ?.focus();
+      moveableRef.current?.updateRect();
+    });
+  }
+
+  function commitTextEditing() {
+    const snapshot = textEditUndoSnapshot.current;
+    const draft = textEditDraft.current;
+
+    if (snapshot && draft) {
+      const previousText = snapshot.layers.find(
+        (layer) => layer.id === draft.id,
+      )?.text;
+
+      if (previousText !== draft.text) {
+        pushUndoSnapshot(snapshot);
+        updateLayer(draft.id, { text: draft.text });
+      }
+    }
+
+    textEditUndoSnapshot.current = null;
+    textEditDraft.current = null;
+    setEditingTextLayerId(null);
+
+    requestAnimationFrame(() => {
+      moveableRef.current?.updateRect();
+    });
+  }
+
+  function changeEditingText(id: string, text: string) {
+    textEditDraft.current = { id, text };
+  }
+
+  function openSaveDialog() {
+    if (editingTextLayerId) {
+      commitTextEditing();
+    }
+
+    setSelectedId(null);
+    setSelectedTarget(null);
+    setEphemeraName(savedEphemeraName ?? ephemeraName);
+    setIsSaveDialogOpen(true);
+  }
+
+  function closeSaveDialog() {
+    setIsSaveDialogOpen(false);
+  }
+
+  async function createEphemeraJpegBlob() {
+    const canvas = document.createElement("canvas");
+    canvas.width = exportSize.width;
+    canvas.height = exportSize.height;
+
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      throw new Error("JPEGを書き出せませんでした。");
+    }
+
+    const boardWidth = boardRef.current?.clientWidth || 760;
+    const boardHeight = boardRef.current?.clientHeight || 570;
+    const scaleX = exportSize.width / boardWidth;
+    const scaleY = exportSize.height / boardHeight;
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    const baseImage = await loadCanvasImage(selectedBase.imageSrc);
+    drawImageCover(context, baseImage, 0, 0, canvas.width, canvas.height);
+
+    const sortedLayers = [...layers].sort(
+      (first, second) => first.zIndex - second.zIndex,
+    );
+
+    for (const layer of sortedLayers) {
+      const x = layer.x * scaleX;
+      const y = layer.y * scaleY;
+      const width = layer.width * scaleX;
+      const height = layer.height * scaleY;
+
+      context.save();
+      context.translate(x + width / 2, y + height / 2);
+      context.rotate((layer.rotation * Math.PI) / 180);
+
+      if (layer.type === "text") {
+        const fontSize = (layer.fontSize ?? 20) * scaleY;
+        const padding = 8 * scaleX;
+        const lineHeight = fontSize * 1.2;
+        const maxTextWidth = Math.max(1, width - padding * 2);
+        const textAlign = layer.textAlign ?? "center";
+        const lines = wrapText(context, layer.text ?? "", maxTextWidth);
+        const totalTextHeight = lines.length * lineHeight;
+        const firstLineY = -height / 2 + (height - totalTextHeight) / 2 + lineHeight / 2;
+        const textX =
+          textAlign === "left"
+            ? -width / 2 + padding
+            : textAlign === "right"
+              ? width / 2 - padding
+              : 0;
+
+        context.fillStyle = layer.color ?? "#2b241f";
+        context.font = `${layer.fontStyle ?? "normal"} ${layer.fontWeight ?? "700"} ${fontSize}px ${layer.fontFamily ?? "serif"}`;
+        context.textAlign = textAlign;
+        context.textBaseline = "middle";
+        context.direction = "ltr";
+
+        lines.forEach((line, index) => {
+          context.fillText(line, textX, firstLineY + index * lineHeight);
+        });
+      } else if (layer.assetId) {
+        const asset = assetsById.get(layer.assetId);
+
+        if (asset?.mediaSrc) {
+          const image = await loadCanvasImage(asset.mediaSrc);
+
+          if (asset.type === "stamp") {
+            drawImageContain(context, image, -width / 2, -height / 2, width, height);
+          } else {
+            drawImageCover(context, image, -width / 2, -height / 2, width, height);
+          }
+        }
+      }
+
+      context.restore();
+    }
+
+    return new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error("JPEGを書き出せませんでした。"));
+            return;
+          }
+
+          resolve(blob);
+        },
+        "image/jpeg",
+        0.92,
+      );
+    });
+  }
+
+  function createPdfTextLines(): PdfTextLine[] {
+    const boardWidth = boardRef.current?.clientWidth || 760;
+    const boardHeight = boardRef.current?.clientHeight || 570;
+    const scaleX = exportSize.width / boardWidth;
+    const scaleY = exportSize.height / boardHeight;
+    const measureCanvas = document.createElement("canvas");
+    const measureContext = measureCanvas.getContext("2d");
+
+    if (!measureContext) {
+      return [];
+    }
+
+    return layers
+      .filter((layer) => layer.type === "text")
+      .flatMap((layer) => {
+        const x = layer.x * scaleX;
+        const y = layer.y * scaleY;
+        const width = layer.width * scaleX;
+        const height = layer.height * scaleY;
+        const fontSize = (layer.fontSize ?? 20) * scaleY;
+        const padding = 8 * scaleX;
+        const lineHeight = fontSize * 1.2;
+        const maxTextWidth = Math.max(1, width - padding * 2);
+        const textAlign = layer.textAlign ?? "center";
+        const rotation = layer.rotation;
+        const rotationRadians = (rotation * Math.PI) / 180;
+        const cos = Math.cos(rotationRadians);
+        const sin = Math.sin(rotationRadians);
+        const centerX = x + width / 2;
+        const centerY = y + height / 2;
+        const textX =
+          textAlign === "left"
+            ? -width / 2 + padding
+            : textAlign === "right"
+              ? width / 2 - padding
+              : 0;
+
+        measureContext.font = `${layer.fontStyle ?? "normal"} ${layer.fontWeight ?? "700"} ${fontSize}px ${layer.fontFamily ?? "serif"}`;
+
+        const lines = wrapText(measureContext, layer.text ?? "", maxTextWidth);
+        const totalTextHeight = lines.length * lineHeight;
+        const firstLineY =
+          -height / 2 + (height - totalTextHeight) / 2 + lineHeight / 2;
+
+        return lines.map((line, index) => {
+          const lineWidth = measureContext.measureText(line).width;
+          const alignOffset =
+            textAlign === "center"
+              ? lineWidth / 2
+              : textAlign === "right"
+                ? lineWidth
+                : 0;
+          const localX = textX - alignOffset;
+          const localY = firstLineY + index * lineHeight + fontSize * 0.35;
+          const canvasX = centerX + localX * cos - localY * sin;
+          const canvasY = centerY + localX * sin + localY * cos;
+
+          return {
+            text: line,
+            x: canvasX,
+            y: exportSize.height - canvasY,
+            fontSize,
+            rotation: -rotation,
+          };
+        });
+      });
+  }
+
+  async function saveEphemera(format: SaveFormat) {
+    const trimmedName = ephemeraName.trim();
+
+    if (!trimmedName) {
+      return;
+    }
+
+    setIsExporting(true);
+    setExportingFormat(format);
+    setExportError(null);
+
+    try {
+      const jpegBlob = await createEphemeraJpegBlob();
+      const formData = new FormData();
+      formData.append("name", trimmedName);
+      formData.append("format", format);
+      formData.append("width", String(exportSize.width));
+      formData.append("height", String(exportSize.height));
+      formData.append("file", jpegBlob, `${sanitizeFileName(trimmedName)}.jpg`);
+
+      if (format === "pdf") {
+        formData.append("textLayers", JSON.stringify(createPdfTextLines()));
+      }
+
+      const response = await fetch("/api/ephemera/save-image", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("保存に失敗しました。");
+      }
+
+      const result = (await response.json()) as { url?: string };
+
+      setSavedEphemeraName(trimmedName);
+      setSavedEphemeraUrl(result.url ?? null);
+      setIsSaveDialogOpen(false);
+    } catch {
+      setExportError("保存に失敗しました。もう一度試してください。");
+    } finally {
+      setIsExporting(false);
+      setExportingFormat(null);
+    }
   }
 
   useEffect(() => {
@@ -494,6 +969,15 @@ export default function EphemeraCreatePage() {
         return;
       }
 
+      if (isSaveDialogOpen) {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeSaveDialog();
+        }
+
+        return;
+      }
+
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
         event.preventDefault();
         undoLastAction();
@@ -506,7 +990,7 @@ export default function EphemeraCreatePage() {
 
       if (event.key === "Delete" || event.key === "Backspace") {
         event.preventDefault();
-        deleteSelectedAsset();
+        deleteSelectedLayer();
         return;
       }
 
@@ -524,7 +1008,7 @@ export default function EphemeraCreatePage() {
       }
 
       event.preventDefault();
-      moveSelectedAsset(movement[0], movement[1]);
+      moveSelectedLayer(movement[0], movement[1]);
     }
 
     window.addEventListener("keydown", handleKeyDown);
@@ -552,74 +1036,131 @@ export default function EphemeraCreatePage() {
           </Link>
         </header>
 
-        <div className="grid gap-5 lg:grid-cols-[300px_1fr]">
-          <aside className="rounded-lg border border-stone-300 bg-white p-5 shadow-sm">
-            <div className="flex items-end justify-between">
-              <div>
-                <h2 className="text-lg font-semibold">記録素材</h2>
-                <p className="mt-1 text-xs text-stone-500">
-                  サムネイルを選んでエフェメラに追加
-                </p>
+        <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
+          <aside className="space-y-4">
+            <section className="rounded-lg border border-stone-300 bg-white p-5 shadow-sm">
+              <div className="flex items-end justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold">ベース素材</h2>
+                  <p className="mt-1 text-xs text-stone-500">
+                    エフェメラの土台になる紙片を選択
+                  </p>
+                </div>
+                <span className="text-xs font-medium text-stone-500">
+                  {bases.length}件
+                </span>
               </div>
-              <span className="text-xs font-medium text-stone-500">
-                {assets.length}件
-              </span>
-            </div>
 
-            <div className="mt-4 space-y-2">
-              {assetTypeOrder.map((type) => {
-                const categoryAssets = assetsByType[type];
-                const isExpanded = expandedAssetTypes.includes(type);
+              <div className="mt-4 space-y-2">
+                {bases.map((base) => {
+                  const isSelected = selectedBaseId === base.id;
 
-                return (
-                  <div
-                    key={type}
-                    className="overflow-hidden rounded-md border border-stone-200 bg-white"
-                  >
+                  return (
                     <button
+                      key={base.id}
                       type="button"
                       onClick={() => {
-                        setExpandedAssetTypes((current) =>
-                          current.includes(type)
-                            ? current.filter((item) => item !== type)
-                            : [...current, type],
-                        );
+                        changeBase(base.id);
                       }}
-                      className={`flex w-full items-center justify-between gap-3 px-3 py-3 text-left transition ${
-                        isExpanded ? "bg-stone-100" : "hover:bg-stone-50"
+                      className={`flex w-full items-center gap-3 rounded-md border px-3 py-3 text-left transition ${
+                        isSelected
+                          ? "border-emerald-700 bg-emerald-50 ring-2 ring-emerald-600"
+                          : "border-stone-200 bg-white hover:bg-stone-50"
                       }`}
-                      aria-expanded={isExpanded}
                     >
-                      <span className="flex min-w-0 items-center gap-3">
-                        <span
-                          className={`h-3 w-3 shrink-0 rounded-full ${mockAssets.find((asset) => asset.type === type)?.accent ?? "bg-stone-300"}`}
+                      <span className="h-12 w-16 shrink-0 overflow-hidden rounded-sm border border-stone-200 bg-stone-100">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={base.imageSrc}
+                          alt=""
+                          className="h-full w-full object-cover"
+                          draggable={false}
                         />
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-semibold">
-                            {assetTypeLabels[type]}
-                          </span>
-                          <span className="mt-0.5 block text-xs text-stone-500">
-                            {categoryAssets.length}件
-                          </span>
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold">
+                          {base.title}
                         </span>
                       </span>
-                      <span
-                        className={`text-sm text-stone-500 transition ${
-                          isExpanded ? "rotate-90" : ""
-                        }`}
-                      >
-                        ›
-                      </span>
                     </button>
+                  );
+                })}
+              </div>
+            </section>
 
-                    {isExpanded && (
-                      <div className="space-y-2 border-t border-stone-200 bg-stone-50 p-2">
-                        {categoryAssets.length === 0 ? (
-                          <p className="px-2 py-3 text-xs text-stone-500">
-                            このカテゴリの素材はまだありません
-                          </p>
-                        ) : (
-                          <div className="grid grid-cols-6 gap-1">
+            <section className="rounded-lg border border-stone-300 bg-white p-5 shadow-sm">
+              <div className="flex items-end justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold">配置素材</h2>
+                  <p className="mt-1 text-xs text-stone-500">
+                    画像とスタンプを選んで重ねる
+                  </p>
+                </div>
+                <span className="text-xs font-medium text-stone-500">
+                  {mockAssets.length}件
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={addTextLayer}
+                className="mt-4 w-full rounded-md bg-emerald-700 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-800"
+              >
+                テキストを追加
+              </button>
+
+              <div className="mt-4 space-y-2">
+                {assetTypeOrder.map((type) => {
+                  const categoryAssets = assetsByType[type];
+                  const isExpanded = expandedAssetTypes.includes(type);
+
+                  return (
+                    <div
+                      key={type}
+                      className="overflow-hidden rounded-md border border-stone-200 bg-white"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExpandedAssetTypes((current) =>
+                            current.includes(type)
+                              ? current.filter((item) => item !== type)
+                              : [...current, type],
+                          );
+                        }}
+                        className={`flex w-full items-center justify-between gap-3 px-3 py-3 text-left transition ${
+                          isExpanded ? "bg-stone-100" : "hover:bg-stone-50"
+                        }`}
+                        aria-expanded={isExpanded}
+                      >
+                        <span className="flex min-w-0 items-center gap-3">
+                          <span
+                            className={`h-3 w-3 shrink-0 rounded-full ${
+                              mockAssets.find((asset) => asset.type === type)
+                                ?.accent ?? "bg-stone-300"
+                            }`}
+                          />
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-semibold">
+                              {assetTypeLabels[type]}
+                            </span>
+                            <span className="mt-0.5 block text-xs text-stone-500">
+                              {categoryAssets.length}件
+                            </span>
+                          </span>
+                        </span>
+                        <span
+                          className={`text-sm text-stone-500 transition ${
+                            isExpanded ? "rotate-90" : ""
+                          }`}
+                        >
+                          &gt;
+                        </span>
+                      </button>
+
+                      {isExpanded && (
+                        <div className="space-y-2 border-t border-stone-200 bg-stone-50 p-2">
+                          <div className="grid grid-cols-4 gap-2">
                             {categoryAssets.map((asset) => {
                               const isPreviewed = previewAssetId === asset.id;
 
@@ -642,36 +1183,51 @@ export default function EphemeraCreatePage() {
                                     <img
                                       src={asset.mediaSrc}
                                       alt=""
-                                      className="h-full w-full object-cover"
+                                      className={`h-full w-full ${
+                                        asset.type === "stamp"
+                                          ? "object-contain p-1"
+                                          : "object-cover"
+                                      }`}
                                       draggable={false}
                                     />
                                   ) : (
                                     <span
-                                      className={`flex h-full w-full items-center justify-center px-1 text-center text-[9px] font-bold leading-3 text-stone-950 ${asset.accent}`}
+                                      className={`flex h-full w-full items-center justify-center px-1 text-center text-[10px] font-bold leading-3 text-stone-950 ${asset.accent}`}
                                     >
-                                      {assetTypeLabels[asset.type]}
+                                      {asset.label}
                                     </span>
                                   )}
                                 </button>
                               );
                             })}
                           </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
           </aside>
 
-          <section className="rounded-lg border border-stone-300 bg-white p-5 shadow-sm">
+          <section className="min-w-0">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold">エフェメラ編集</h2>
-                <p className="mt-1 text-xs font-medium text-emerald-700">
-                  追加済み: {placedAssets.length}件
+                <h2 className="text-xl font-semibold">編集キャンバス</h2>
+                <p className="mt-1 text-sm text-stone-500">
+                  ベース: {selectedBase.title} / レイヤー: {layers.length}件
+                  {savedEphemeraName ? ` / 名前: ${savedEphemeraName}` : ""}
                 </p>
+                {savedEphemeraUrl && (
+                  <a
+                    href={savedEphemeraUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-1 inline-block text-sm font-medium text-emerald-700 underline-offset-4 hover:underline"
+                  >
+                    保存先を開く
+                  </a>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -680,19 +1236,20 @@ export default function EphemeraCreatePage() {
                   disabled={!canUndo}
                   className="rounded-md border border-stone-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  戻る
+                  戻す
                 </button>
                 <button
                   type="button"
+                  onClick={openSaveDialog}
                   className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800"
                 >
-                  エフェメラを保存
+                  保存
                 </button>
               </div>
             </div>
 
             <div
-              className="relative min-h-[560px] overflow-hidden rounded-md border border-dashed border-stone-300 bg-[#fbfaf7]"
+              className="relative min-h-[640px] overflow-auto rounded-md border border-dashed border-stone-300 bg-[#fbfaf7] p-8"
               onMouseDown={(event) => {
                 if (event.currentTarget === event.target) {
                   setSelectedId(null);
@@ -700,402 +1257,568 @@ export default function EphemeraCreatePage() {
                 }
               }}
             >
-              {placedAssets.length === 0 && (
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-stone-400">
-                  素材を選んでエフェメラに追加
-                </div>
-              )}
+              <div
+                ref={boardRef}
+                className="relative mx-auto aspect-[1448/1086] w-full max-w-[760px] overflow-hidden rounded-md border border-stone-300 bg-white shadow-md"
+                onMouseDown={(event) => {
+                  if (event.currentTarget === event.target) {
+                    setSelectedId(null);
+                    setSelectedTarget(null);
+                  }
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={selectedBase.imageSrc}
+                  alt=""
+                  className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+                  draggable={false}
+                />
 
-              {placedAssets.map((item) => {
-                const asset = assetsById.get(item.assetId);
+                {layers.map((item) => {
+                  const asset = item.assetId ? assetsById.get(item.assetId) : null;
+                  const isSelected = selectedId === item.id;
+                  const isEditingText = editingTextLayerId === item.id;
 
-                if (!asset) {
-                  return null;
-                }
-
-                const isSelected = selectedId === item.id;
-
-                return (
-                  <div
-                    key={item.id}
-                    ref={(element) => {
-                      assetRefs.current[item.id] = element;
-                    }}
-                    role="button"
-                    tabIndex={0}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      selectPlacedAsset(item.id);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        selectPlacedAsset(item.id);
-                      }
-                    }}
-                    className={`absolute cursor-move select-none rounded-md border bg-white shadow-sm outline-none ${
-                      isSelected
-                        ? "border-emerald-700 ring-2 ring-emerald-600 ring-offset-2"
-                        : "border-stone-300"
-                    }`}
-                    style={{
-                      left: 0,
-                      top: 0,
-                      width: item.width,
-                      height: item.height,
-                      zIndex: item.zIndex,
-                      transform: `translate(${item.x}px, ${item.y}px) rotate(${item.rotation}deg)`,
-                    }}
-                  >
-                    {isSelected && (
-                      <button
-                        type="button"
-                        aria-label="素材を削除"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          deleteSelectedAsset();
-                        }}
-                        className="hidden"
-                      >
-                        ×
-                      </button>
-                    )}
+                  return (
                     <div
-                      className={`relative flex h-full w-full flex-col justify-between overflow-hidden rounded-[inherit] p-4 ${asset.accent}`}
+                      key={item.id}
+                      ref={(element) => {
+                        layerRefs.current[item.id] = element;
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        selectLayer(item.id);
+                      }}
+                      onDoubleClick={(event) => {
+                        event.stopPropagation();
+                        beginTextEditing(item.id);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          selectLayer(item.id);
+                        }
+                      }}
+                      className={`absolute outline-none ${
+                        isEditingText ? "cursor-text" : "cursor-move select-none"
+                      } ${
+                        isSelected
+                          ? "ring-2 ring-emerald-600 ring-offset-2"
+                          : "ring-0"
+                      }`}
+                      style={{
+                        left: 0,
+                        top: 0,
+                        width: item.width,
+                        height: item.height,
+                        zIndex: item.zIndex,
+                        transform: `translate(${item.x}px, ${item.y}px) rotate(${item.rotation}deg)`,
+                      }}
                     >
-                      {asset.mediaSrc ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={asset.mediaSrc}
-                          alt={asset.title}
-                          className="absolute inset-0 h-full w-full object-cover"
-                          draggable={false}
-                        />
+                      {item.type === "text" ? (
+                        <div
+                          data-text-editor
+                          contentEditable={isEditingText}
+                          suppressContentEditableWarning
+                          onMouseDown={(event) => {
+                            if (isEditingText) {
+                              event.stopPropagation();
+                            }
+                          }}
+                          onClick={(event) => {
+                            if (isEditingText) {
+                              event.stopPropagation();
+                            }
+                          }}
+                          onKeyDown={(event) => {
+                            if (isEditingText) {
+                              event.stopPropagation();
+                            }
+                          }}
+                          onInput={(event) => {
+                            changeEditingText(
+                              item.id,
+                              event.currentTarget.innerText,
+                            );
+                          }}
+                          onBlur={commitTextEditing}
+                          className={`flex h-full w-full items-center overflow-hidden rounded-sm px-2 leading-tight outline-none ${
+                            isEditingText
+                              ? "bg-white/35 ring-1 ring-emerald-700/50"
+                              : ""
+                          }`}
+                          style={{
+                            color: item.color,
+                            fontSize: item.fontSize,
+                            fontFamily: item.fontFamily,
+                            fontWeight: item.fontWeight,
+                            fontStyle: item.fontStyle,
+                            textAlign: item.textAlign,
+                            justifyContent:
+                              item.textAlign === "right"
+                                ? "flex-end"
+                                : item.textAlign === "center"
+                                  ? "center"
+                                  : "flex-start",
+                            whiteSpace: "pre-wrap",
+                          }}
+                        >
+                          {item.text}
+                        </div>
+                      ) : asset?.mediaSrc ? (
+                        <div
+                          className={`h-full w-full overflow-hidden rounded-md ${
+                            asset.type === "stamp"
+                              ? "bg-transparent"
+                              : "border border-white/70 bg-white shadow-sm"
+                          }`}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={asset.mediaSrc}
+                            alt={asset.title}
+                            className={`h-full w-full ${
+                              asset.type === "stamp"
+                                ? "object-contain"
+                                : "object-cover"
+                            }`}
+                            draggable={false}
+                          />
+                        </div>
                       ) : (
-                        <>
-                          <div>
-                            <p className="text-xs font-bold uppercase text-stone-700">
-                              {assetTypeLabels[asset.type]}
-                            </p>
-                            <h3 className="mt-2 text-sm font-semibold leading-5">
-                              {asset.title}
-                            </h3>
-                            <p className="mt-2 text-xs leading-5 text-stone-700">
-                              {asset.description}
-                            </p>
-                          </div>
-                          {asset.type === "audio" && (
-                            <div className="mt-3 h-2 rounded-full bg-white/70">
-                              <div className="h-2 w-1/2 rounded-full bg-stone-950" />
-                            </div>
-                          )}
-                          {asset.type === "video" && (
-                            <div className="mt-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-xs font-bold">
-                              PLAY
-                            </div>
-                          )}
-                        </>
-                      )}
-                      {asset.mediaSrc && (
-                        <div className="absolute inset-x-0 bottom-0 bg-white/85 px-3 py-2">
-                          <p className="truncate text-xs font-semibold">
-                            {asset.title}
-                          </p>
+                        <div
+                          className={`flex h-full w-full items-center justify-center rounded-md border border-stone-950/15 px-2 text-center text-sm font-black tracking-normal text-stone-950 shadow-sm ${asset?.accent ?? "bg-stone-200"}`}
+                        >
+                          {asset?.label}
                         </div>
                       )}
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
 
-              {selectedTarget && (
-                <Moveable
-                  ref={(instance) => {
-                    moveableRef.current = instance;
-                  }}
-                  target={selectedTarget}
-                  draggable
-                  resizable
-                  rotatable
-                  keepRatio={false}
-                  throttleDrag={0}
-                  throttleResize={0}
-                  throttleRotate={0}
-                  renderDirections={[
-                    "nw",
-                    "n",
-                    "ne",
-                    "w",
-                    "e",
-                    "sw",
-                    "s",
-                    "se",
-                  ]}
-                  onDragStart={({ set }: OnDragStart) => {
-                    if (!selectedId) {
-                      return;
-                    }
+                {selectedTarget && (
+                  <Moveable
+                    ref={(instance) => {
+                      moveableRef.current = instance;
+                    }}
+                    target={selectedTarget}
+                    draggable={!editingTextLayerId}
+                    resizable
+                    rotatable
+                    keepRatio={selectedLayer?.type !== "text"}
+                    throttleDrag={0}
+                    throttleResize={0}
+                    throttleRotate={0}
+                    renderDirections={[
+                      "nw",
+                      "n",
+                      "ne",
+                      "w",
+                      "e",
+                      "sw",
+                      "s",
+                      "se",
+                    ]}
+                    onDragStart={({ set }: OnDragStart) => {
+                      if (!selectedId) {
+                        return;
+                      }
 
-                    const selectedItem = placedAssets.find(
-                      (draft) => draft.id === selectedId,
-                    );
-
-                    if (!selectedItem) {
-                      return;
-                    }
-
-                    interactionDraft.current = {
-                      id: selectedItem.id,
-                      x: selectedItem.x,
-                      y: selectedItem.y,
-                      width: selectedItem.width,
-                      height: selectedItem.height,
-                      rotation: selectedItem.rotation,
-                    };
-                    interactionUndoSnapshot.current = createSnapshot();
-                    set([selectedItem.x, selectedItem.y]);
-                  }}
-                  onDrag={({ target, beforeTranslate }: OnDrag) => {
-                    const draft = interactionDraft.current;
-
-                    if (!draft) {
-                      return;
-                    }
-
-                    const nextLayout = {
-                      x: Math.round(beforeTranslate[0]),
-                      y: Math.round(beforeTranslate[1]),
-                      width: draft.width,
-                      height: draft.height,
-                      rotation: draft.rotation,
-                    };
-
-                    interactionDraft.current = {
-                      id: draft.id,
-                      ...nextLayout,
-                    };
-                    applyElementLayout(target, nextLayout);
-                  }}
-                  onDragEnd={commitInteractionDraft}
-                  onResizeStart={({ set }: OnResizeStart) => {
-                    if (!selectedId) {
-                      return;
-                    }
-
-                    const selectedItem = placedAssets.find(
-                      (draft) => draft.id === selectedId,
-                    );
-
-                    if (!selectedItem) {
-                      return;
-                    }
-
-                    const draft = {
-                      id: selectedItem.id,
-                      x: selectedItem.x,
-                      y: selectedItem.y,
-                      width: selectedItem.width,
-                      height: selectedItem.height,
-                      rotation: selectedItem.rotation,
-                    };
-
-                    resizeStartDraft.current = draft;
-                    interactionDraft.current = draft;
-                    interactionUndoSnapshot.current = createSnapshot();
-                    set([selectedItem.width, selectedItem.height]);
-                  }}
-                  onResize={({ target, width, height, direction }: OnResize) => {
-                    if (!selectedId) {
-                      return;
-                    }
-
-                    const start = resizeStartDraft.current;
-
-                    if (!start || start.id !== selectedId) {
-                      return;
-                    }
-
-                    const [horizontal, vertical] = direction;
-                    const isCorner = horizontal !== 0 && vertical !== 0;
-                    const isVerticalEdge = horizontal === 0 && vertical !== 0;
-                    const isHorizontalEdge = horizontal !== 0 && vertical === 0;
-
-                    if (isCorner) {
-                      const nextSize = getAspectLockedSize(
-                        start,
-                        width,
-                        height,
+                      const selectedItem = layers.find(
+                        (draft) => draft.id === selectedId,
                       );
-                      const fixedRight = start.x + start.width;
-                      const fixedBottom = start.y + start.height;
+
+                      if (!selectedItem) {
+                        return;
+                      }
+
+                      interactionDraft.current = {
+                        id: selectedItem.id,
+                        x: selectedItem.x,
+                        y: selectedItem.y,
+                        width: selectedItem.width,
+                        height: selectedItem.height,
+                        rotation: selectedItem.rotation,
+                      };
+                      interactionUndoSnapshot.current = createSnapshot();
+                      set([selectedItem.x, selectedItem.y]);
+                    }}
+                    onDrag={({ target, beforeTranslate }: OnDrag) => {
+                      const draft = interactionDraft.current;
+
+                      if (!draft) {
+                        return;
+                      }
+
                       const nextLayout = {
-                        width: nextSize.width,
-                        height: nextSize.height,
-                        x:
-                          horizontal < 0
-                            ? fixedRight - nextSize.width
-                            : start.x,
-                        y:
-                          vertical < 0
-                            ? fixedBottom - nextSize.height
-                            : start.y,
-                        rotation: start.rotation,
+                        x: Math.round(beforeTranslate[0]),
+                        y: Math.round(beforeTranslate[1]),
+                        width: draft.width,
+                        height: draft.height,
+                        rotation: draft.rotation,
                       };
 
                       interactionDraft.current = {
-                        id: selectedId,
+                        id: draft.id,
                         ...nextLayout,
                       };
                       applyElementLayout(target, nextLayout);
-                      return;
-                    }
+                    }}
+                    onDragEnd={commitInteractionDraft}
+                    onResizeStart={({ set }: OnResizeStart) => {
+                      if (!selectedId) {
+                        return;
+                      }
 
-                    if (isVerticalEdge) {
-                      const nextHeight = clampSize(height);
-                      const fixedBottom = start.y + start.height;
+                      const selectedItem = layers.find(
+                        (draft) => draft.id === selectedId,
+                      );
+
+                      if (!selectedItem) {
+                        return;
+                      }
+
+                      const draft = {
+                        id: selectedItem.id,
+                        x: selectedItem.x,
+                        y: selectedItem.y,
+                        width: selectedItem.width,
+                        height: selectedItem.height,
+                        rotation: selectedItem.rotation,
+                      };
+
+                      resizeStartDraft.current = draft;
+                      interactionDraft.current = draft;
+                      interactionUndoSnapshot.current = createSnapshot();
+                      set([selectedItem.width, selectedItem.height]);
+                    }}
+                    onResize={({ target, width, height, direction }: OnResize) => {
+                      if (!selectedId) {
+                        return;
+                      }
+
+                      const start = resizeStartDraft.current;
+
+                      if (!start || start.id !== selectedId) {
+                        return;
+                      }
+
+                      const selectedItem = layers.find(
+                        (draft) => draft.id === selectedId,
+                      );
+                      const [horizontal, vertical] = direction;
+                      const isCorner = horizontal !== 0 && vertical !== 0;
+                      const isVerticalEdge = horizontal === 0 && vertical !== 0;
+                      const isHorizontalEdge = horizontal !== 0 && vertical === 0;
+
+                      if (isCorner && selectedItem?.type !== "text") {
+                        const nextSize = getAspectLockedSize(start, width, height);
+                        const fixedRight = start.x + start.width;
+                        const fixedBottom = start.y + start.height;
+                        const nextLayout = {
+                          width: nextSize.width,
+                          height: nextSize.height,
+                          x:
+                            horizontal < 0
+                              ? fixedRight - nextSize.width
+                              : start.x,
+                          y:
+                            vertical < 0
+                              ? fixedBottom - nextSize.height
+                              : start.y,
+                          rotation: start.rotation,
+                        };
+
+                        interactionDraft.current = {
+                          id: selectedId,
+                          ...nextLayout,
+                        };
+                        applyElementLayout(target, nextLayout);
+                        return;
+                      }
+
+                      if (isVerticalEdge || (isCorner && selectedItem?.type === "text")) {
+                        const nextHeight = clampSize(height);
+                        const fixedBottom = start.y + start.height;
+                        const nextWidth =
+                          isCorner && selectedItem?.type === "text"
+                            ? clampSize(width)
+                            : start.width;
+                        const fixedRight = start.x + start.width;
+                        const nextLayout = {
+                          x:
+                            horizontal < 0 && selectedItem?.type === "text"
+                              ? fixedRight - nextWidth
+                              : start.x,
+                          y: vertical < 0 ? fixedBottom - nextHeight : start.y,
+                          width: nextWidth,
+                          height: nextHeight,
+                          rotation: start.rotation,
+                        };
+
+                        interactionDraft.current = {
+                          id: selectedId,
+                          ...nextLayout,
+                        };
+                        applyElementLayout(target, nextLayout);
+                        return;
+                      }
+
+                      if (isHorizontalEdge) {
+                        const nextWidth = clampSize(width);
+                        const fixedRight = start.x + start.width;
+                        const nextLayout = {
+                          x: horizontal < 0 ? fixedRight - nextWidth : start.x,
+                          y: start.y,
+                          width: nextWidth,
+                          height: start.height,
+                          rotation: start.rotation,
+                        };
+
+                        interactionDraft.current = {
+                          id: selectedId,
+                          ...nextLayout,
+                        };
+                        applyElementLayout(target, nextLayout);
+                      }
+                    }}
+                    onResizeEnd={() => {
+                      commitInteractionDraft();
+                      resizeStartDraft.current = null;
+                    }}
+                    onRotateStart={({ set }: OnRotateStart) => {
+                      if (!selectedId) {
+                        return;
+                      }
+
+                      const selectedItem = layers.find(
+                        (draft) => draft.id === selectedId,
+                      );
+
+                      if (!selectedItem) {
+                        return;
+                      }
+
+                      interactionDraft.current = {
+                        id: selectedItem.id,
+                        x: selectedItem.x,
+                        y: selectedItem.y,
+                        width: selectedItem.width,
+                        height: selectedItem.height,
+                        rotation: selectedItem.rotation,
+                      };
+                      interactionUndoSnapshot.current = createSnapshot();
+                      set(selectedItem.rotation);
+                    }}
+                    onRotate={({ target, beforeRotate }: OnRotate) => {
+                      const draft = interactionDraft.current;
+
+                      if (!draft) {
+                        return;
+                      }
+
                       const nextLayout = {
-                        x: start.x,
-                        y: vertical < 0 ? fixedBottom - nextHeight : start.y,
-                        width: start.width,
-                        height: nextHeight,
-                        rotation: start.rotation,
+                        x: draft.x,
+                        y: draft.y,
+                        width: draft.width,
+                        height: draft.height,
+                        rotation: normalizeRotation(beforeRotate),
                       };
 
                       interactionDraft.current = {
-                        id: selectedId,
+                        id: draft.id,
                         ...nextLayout,
                       };
                       applyElementLayout(target, nextLayout);
-                      return;
-                    }
-
-                    if (isHorizontalEdge) {
-                      const nextWidth = clampSize(width);
-                      const fixedRight = start.x + start.width;
-                      const nextLayout = {
-                        x: horizontal < 0 ? fixedRight - nextWidth : start.x,
-                        y: start.y,
-                        width: nextWidth,
-                        height: start.height,
-                        rotation: start.rotation,
-                      };
-
-                      interactionDraft.current = {
-                        id: selectedId,
-                        ...nextLayout,
-                      };
-                      applyElementLayout(target, nextLayout);
-                    }
-                  }}
-                  onResizeEnd={() => {
-                    commitInteractionDraft();
-                    resizeStartDraft.current = null;
-                  }}
-                  onRotateStart={({ set }: OnRotateStart) => {
-                    if (!selectedId) {
-                      return;
-                    }
-
-                    const selectedItem = placedAssets.find(
-                      (draft) => draft.id === selectedId,
-                    );
-
-                    if (!selectedItem) {
-                      return;
-                    }
-
-                    interactionDraft.current = {
-                      id: selectedItem.id,
-                      x: selectedItem.x,
-                      y: selectedItem.y,
-                      width: selectedItem.width,
-                      height: selectedItem.height,
-                      rotation: selectedItem.rotation,
-                    };
-                    interactionUndoSnapshot.current = createSnapshot();
-                    set(selectedItem.rotation);
-                  }}
-                  onRotate={({ target, beforeRotate }: OnRotate) => {
-                    const draft = interactionDraft.current;
-
-                    if (!draft) {
-                      return;
-                    }
-
-                    const nextLayout = {
-                      x: draft.x,
-                      y: draft.y,
-                      width: draft.width,
-                      height: draft.height,
-                      rotation: normalizeRotation(beforeRotate),
-                    };
-
-                    interactionDraft.current = {
-                      id: draft.id,
-                      ...nextLayout,
-                    };
-                    applyElementLayout(target, nextLayout);
-                  }}
-                  onRotateEnd={commitInteractionDraft}
-                />
-              )}
+                    }}
+                    onRotateEnd={commitInteractionDraft}
+                  />
+                )}
+              </div>
             </div>
 
-            {selectedId && (
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-stone-200 bg-stone-50 px-4 py-3">
-                <div>
-                  <p className="text-xs font-medium text-stone-500">
-                    選択中の素材
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-stone-900">
-                    {selectedId}
-                  </p>
+            {selectedLayer && (
+              <div className="mt-4 rounded-md border border-stone-200 bg-stone-50 px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-medium text-stone-500">
+                      選択中のレイヤー
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-stone-900">
+                      {selectedLayer.type === "text"
+                        ? "テキスト"
+                        : selectedLayer.assetId
+                          ? assetsById.get(selectedLayer.assetId)?.title
+                          : selectedLayer.id}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        reorderSelectedLayer("front");
+                      }}
+                      className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium transition hover:bg-stone-100"
+                    >
+                      最前面
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        reorderSelectedLayer("forward");
+                      }}
+                      className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium transition hover:bg-stone-100"
+                    >
+                      前面へ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        reorderSelectedLayer("backward");
+                      }}
+                      className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium transition hover:bg-stone-100"
+                    >
+                      背面へ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        reorderSelectedLayer("back");
+                      }}
+                      className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium transition hover:bg-stone-100"
+                    >
+                      最背面
+                    </button>
+                    <button
+                      type="button"
+                      onClick={deleteSelectedLayer}
+                      className="rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50"
+                    >
+                      削除
+                    </button>
+                  </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      reorderSelectedAsset("front");
-                    }}
-                    className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium transition hover:bg-stone-100"
-                  >
-                    最前面へ
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      reorderSelectedAsset("forward");
-                    }}
-                    className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium transition hover:bg-stone-100"
-                  >
-                    前面へ
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      reorderSelectedAsset("backward");
-                    }}
-                    className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium transition hover:bg-stone-100"
-                  >
-                    背面へ
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      reorderSelectedAsset("back");
-                    }}
-                    className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium transition hover:bg-stone-100"
-                  >
-                    最背面へ
-                  </button>
-                  <button
-                    type="button"
-                    onClick={deleteSelectedAsset}
-                    className="ml-0 rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 sm:ml-4"
-                  >
-                    削除
-                  </button>
-                </div>
+
+                {selectedLayer.type === "text" && (
+                  <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-stone-200 pt-4">
+                    <label className="block w-40">
+                      <span className="text-xs font-medium text-stone-500">
+                        フォント
+                      </span>
+                      <select
+                        value={selectedLayer.fontFamily ?? "serif"}
+                        onChange={(event) => {
+                          updateSelectedText({
+                            fontFamily: event.target.value,
+                          });
+                        }}
+                        className="mt-1 w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-700"
+                      >
+                        <option value="serif">Serif</option>
+                        <option value="sans-serif">Sans</option>
+                        <option value="monospace">Mono</option>
+                        <option value="cursive">Script</option>
+                      </select>
+                    </label>
+
+                    <label className="block w-24">
+                      <span className="text-xs font-medium text-stone-500">
+                        サイズ
+                      </span>
+                      <input
+                        type="number"
+                        min={10}
+                        max={96}
+                        value={selectedLayer.fontSize ?? 20}
+                        onChange={(event) => {
+                          updateSelectedText({
+                            fontSize: Number(event.target.value),
+                          });
+                        }}
+                        className="mt-1 w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-700"
+                      />
+                    </label>
+
+                    <label className="block w-20">
+                      <span className="text-xs font-medium text-stone-500">
+                        色
+                      </span>
+                      <input
+                        type="color"
+                        value={selectedLayer.color ?? "#2b241f"}
+                        onChange={(event) => {
+                          updateSelectedText({ color: event.target.value });
+                        }}
+                        className="mt-1 h-10 w-full rounded-md border border-stone-300 bg-white px-2 py-1"
+                      />
+                    </label>
+
+                    <div className="flex items-center rounded-md border border-stone-300 bg-white p-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateSelectedText({
+                            fontWeight:
+                              selectedLayer.fontWeight === "700" ? "500" : "700",
+                          });
+                        }}
+                        className={`h-8 w-8 rounded text-sm font-bold transition ${
+                          selectedLayer.fontWeight === "700"
+                            ? "bg-emerald-700 text-white"
+                            : "hover:bg-stone-100"
+                        }`}
+                        aria-label="太字"
+                      >
+                        B
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateSelectedText({
+                            fontStyle:
+                              selectedLayer.fontStyle === "italic"
+                                ? "normal"
+                                : "italic",
+                          });
+                        }}
+                        className={`h-8 w-8 rounded text-sm italic transition ${
+                          selectedLayer.fontStyle === "italic"
+                            ? "bg-emerald-700 text-white"
+                            : "hover:bg-stone-100"
+                        }`}
+                        aria-label="斜体"
+                      >
+                        I
+                      </button>
+                    </div>
+
+                    <div className="flex items-center rounded-md border border-stone-300 bg-white p-1">
+                      {(["left", "center", "right"] as const).map((align) => (
+                        <button
+                          key={align}
+                          type="button"
+                          onClick={() => {
+                            updateSelectedText({ textAlign: align });
+                          }}
+                          className={`h-8 min-w-10 rounded px-2 text-xs font-semibold transition ${
+                            (selectedLayer.textAlign ?? "center") === align
+                              ? "bg-emerald-700 text-white"
+                              : "hover:bg-stone-100"
+                          }`}
+                        >
+                          {align === "left"
+                            ? "左"
+                            : align === "center"
+                              ? "中央"
+                              : "右"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </section>
@@ -1131,7 +1854,11 @@ export default function EphemeraCreatePage() {
                 <img
                   src={previewAsset.mediaSrc}
                   alt={previewAsset.title}
-                  className="h-full w-full object-cover"
+                  className={`h-full w-full ${
+                    previewAsset.type === "stamp"
+                      ? "object-contain p-4"
+                      : "object-cover"
+                  }`}
                   draggable={false}
                 />
               </div>
@@ -1139,27 +1866,107 @@ export default function EphemeraCreatePage() {
               <div
                 className={`mb-4 flex h-56 items-center justify-center rounded-md px-6 text-lg font-bold text-stone-950 ${previewAsset.accent}`}
               >
-                {assetTypeLabels[previewAsset.type]}
+                {previewAsset.label}
               </div>
             )}
 
             <h3 id="asset-preview-title" className="text-lg font-semibold">
               {previewAsset.title}
             </h3>
-            <p className="mt-2 text-sm leading-6 text-stone-600">
-              {previewAsset.description}
-            </p>
             <button
               type="button"
               onClick={() => {
-                addAssetToBoard(previewAsset);
+                addAssetLayer(previewAsset);
                 setPreviewAssetId(null);
               }}
               className="mt-5 w-full rounded-md bg-emerald-700 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-800"
             >
-              エフェメラに追加
+              キャンバスに追加
             </button>
           </div>
+        </div>
+      )}
+
+      {isSaveDialogOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/45 px-5 py-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="save-dialog-title"
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveEphemera("jpeg");
+            }}
+            className="w-full max-w-md rounded-lg border border-stone-200 bg-white p-5 shadow-xl"
+          >
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h3 id="save-dialog-title" className="text-lg font-semibold">
+                  エフェメラに名前を付ける
+                </h3>
+                <p className="mt-1 text-sm text-stone-500">
+                  一覧で見分けやすい名前を入力してください。
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeSaveDialog}
+                className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium transition hover:bg-stone-100"
+              >
+                閉じる
+              </button>
+            </div>
+
+            <label className="block">
+              <span className="text-xs font-medium text-stone-500">名前</span>
+              <input
+                ref={saveNameInputRef}
+                value={ephemeraName}
+                onChange={(event) => {
+                  setEphemeraName(event.target.value);
+                  setExportError(null);
+                }}
+                placeholder="例: 京都の朝の記録"
+                className="mt-1 w-full rounded-md border border-stone-300 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-700"
+              />
+            </label>
+
+            {exportError && (
+              <p className="mt-3 text-sm font-medium text-red-700">
+                {exportError}
+              </p>
+            )}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeSaveDialog}
+                disabled={isExporting}
+                className="rounded-md border border-stone-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-stone-100"
+              >
+                キャンセル
+              </button>
+              <button
+                type="submit"
+                disabled={!ephemeraName.trim() || isExporting}
+                className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {exportingFormat === "jpeg" ? "JPEG保存中" : "JPEGで保存"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void saveEphemera("pdf");
+                }}
+                disabled={!ephemeraName.trim() || isExporting}
+                className="rounded-md bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {exportingFormat === "pdf" ? "PDF保存中" : "PDFで保存"}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </main>
