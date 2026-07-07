@@ -96,7 +96,7 @@
 | 10 | 実装済み | 手動作成エフェメラのローカル保存 | POST | `/api/ephemera/save-image` | `src/app/api/ephemera/save-image/route.ts` | `name`, `format`, `width`, `height`, `file`, `textLayers` 任意 | `fileName`, `url` | 現在はDB未登録。`public/ephemera/saved/` にファイル保存のみ行う |
 | 11 | 実装済み | AI生成エフェメラ保存 | POST | `/api/ephemera/save-generated` | `src/app/api/ephemera/save-generated/route.ts` | `Authorization: Bearer <token>`, `title`, `imageDataUrl` または `imageUrl`, `prompt` 任意 | `ephemera` | Storage bucket `ephemeras` に画像を保存し、`ephemeras` に `owner_profile_id`, `creator_profile_id`, `title`, `file_type`, `file_url` を追加 |
 | 12 | 未実装 | 手動作成エフェメラのDB登録 | POST | `/api/ephemera` | なし | `title`, `file_type`, `file_url` | `id`, `file_url`, `expires_at` | `ephemeras` に `owner_profile_id`, `creator_profile_id`, `title`, `file_type`, `file_url` を追加 |
-| 13 | 未実装 | エフェメラ一覧取得 | GET | `/api/ephemera` | なし | なし | `ephemeras[]` | `ephemeras.owner_profile_id = auth.uid()` かつ `expires_at > now()` のものを取得 |
+| 13 | 実装済み | エフェメラ一覧取得 | GET | `/api/ephemera` | `src/app/api/ephemera/route.ts` | `Authorization: Bearer <token>` | `ephemeras[]` | `ephemeras.owner_profile_id = auth.uid()` かつ `expires_at > now()` のものを取得 |
 | 14 | 未実装 | エフェメラ詳細取得 | GET | `/api/ephemera/{ephemera_id}` | なし | `ephemera_id` | エフェメラ詳細、残り有効期間、ファイルURL | `ephemeras` を取得 |
 
 ### 4.5 対面共有 API
@@ -155,7 +155,7 @@
 - AI画像生成 API: `POST /api/ephemera/generate`
 - AI生成エフェメラ保存 API: `POST /api/ephemera/save-generated`
 - 手動作成エフェメラ保存 API: `POST /api/ephemera/save-image`
-- エフェメラ一覧/詳細 API: `GET /api/ephemera`, `GET /api/ephemera/{ephemera_id}`
+- エフェメラ一覧/詳細 API: `GET /api/ephemera` は実装済み、`GET /api/ephemera/{ephemera_id}` は未実装
 - 対面共有確定 API: `POST /api/ephemera/transfers/confirm`
 - 共有履歴 API: `GET /api/ephemera/transfers`
 - 期限切れエフェメラ自動削除処理: `public.delete_expired_ephemeras()`
