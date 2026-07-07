@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "エフェモ",
-  description: "写真・動画・音声からエフェメラを作るスクラップブックアプリ",
+  description: "写真・動画・音声から日々のエフェメラを作るアプリ",
 };
 
 export default function RootLayout({

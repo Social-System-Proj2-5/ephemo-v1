@@ -14,7 +14,7 @@ import type {
 
 type AssetType = "ephemera" | "photo" | "video" | "audio" | "stamp";
 
-type ScrapbookAsset = {
+type EphemeraAsset = {
   id: string;
   type: AssetType;
   title: string;
@@ -51,14 +51,14 @@ type MoveableHandle = {
   updateRect: () => void;
 };
 
-type ScrapbookSnapshot = {
+type EphemeraSnapshot = {
   placedAssets: PlacedAsset[];
   selectedId: string | null;
   nextZIndex: number;
   nextPlacedId: number;
 };
 
-const mockAssets: ScrapbookAsset[] = [
+const mockAssets: EphemeraAsset[] = [
   {
     id: "sample-image",
     type: "photo",
@@ -111,7 +111,7 @@ const mockAssets: ScrapbookAsset[] = [
   },
 ];
 
-async function fetchScrapbookAssets() {
+async function fetchEphemeraAssets() {
   return mockAssets;
 }
 
@@ -196,8 +196,8 @@ function applyElementLayout(
   target.style.transform = `translate(${layout.x}px, ${layout.y}px) rotate(${layout.rotation}deg)`;
 }
 
-export default function ScrapbookPage() {
-  const [assets, setAssets] = useState<ScrapbookAsset[]>(mockAssets);
+export default function EphemeraCreatePage() {
+  const [assets, setAssets] = useState<EphemeraAsset[]>(mockAssets);
   const [placedAssets, setPlacedAssets] = useState<PlacedAsset[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<HTMLDivElement | null>(
@@ -212,13 +212,13 @@ export default function ScrapbookPage() {
   const nextPlacedId = useRef(1);
   const resizeStartDraft = useRef<InteractionDraft | null>(null);
   const interactionDraft = useRef<InteractionDraft | null>(null);
-  const interactionUndoSnapshot = useRef<ScrapbookSnapshot | null>(null);
-  const undoStack = useRef<ScrapbookSnapshot[]>([]);
+  const interactionUndoSnapshot = useRef<EphemeraSnapshot | null>(null);
+  const undoStack = useRef<EphemeraSnapshot[]>([]);
 
   useEffect(() => {
     let active = true;
 
-    fetchScrapbookAssets().then((items) => {
+    fetchEphemeraAssets().then((items) => {
       if (active) {
         setAssets(items);
       }
@@ -240,7 +240,7 @@ export default function ScrapbookPage() {
 
   const assetsByType = useMemo(
     () =>
-      assetTypeOrder.reduce<Record<AssetType, ScrapbookAsset[]>>(
+      assetTypeOrder.reduce<Record<AssetType, EphemeraAsset[]>>(
         (groupedAssets, type) => {
           groupedAssets[type] = assets.filter((asset) => asset.type === type);
           return groupedAssets;
@@ -266,7 +266,7 @@ export default function ScrapbookPage() {
 
   function createSnapshot(
     currentPlacedAssets = placedAssets,
-  ): ScrapbookSnapshot {
+  ): EphemeraSnapshot {
     return {
       placedAssets: clonePlacedAssets(currentPlacedAssets),
       selectedId,
@@ -352,7 +352,7 @@ export default function ScrapbookPage() {
     setSelectedTarget(assetRefs.current[id] ?? null);
   }
 
-  function addAssetToBoard(asset: ScrapbookAsset) {
+  function addAssetToBoard(asset: EphemeraAsset) {
     pushUndoSnapshot();
 
     const id = `${asset.id}-${nextPlacedId.current}`;
@@ -541,7 +541,7 @@ export default function ScrapbookPage() {
           <div>
             <p className="text-sm font-medium text-emerald-700">Create</p>
             <h1 className="text-3xl font-semibold tracking-normal">
-              スクラップブック作成
+              エフェメラ作成
             </h1>
           </div>
           <Link
@@ -556,9 +556,9 @@ export default function ScrapbookPage() {
           <aside className="rounded-lg border border-stone-300 bg-white p-5 shadow-sm">
             <div className="flex items-end justify-between">
               <div>
-                <h2 className="text-lg font-semibold">素材一覧</h2>
+                <h2 className="text-lg font-semibold">記録素材</h2>
                 <p className="mt-1 text-xs text-stone-500">
-                  サムネイルを選んで詳細から追加
+                  サムネイルを選んでエフェメラに追加
                 </p>
               </div>
               <span className="text-xs font-medium text-stone-500">
@@ -668,9 +668,9 @@ export default function ScrapbookPage() {
           <section className="rounded-lg border border-stone-300 bg-white p-5 shadow-sm">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold">台紙</h2>
+                <h2 className="text-lg font-semibold">エフェメラ編集</h2>
                 <p className="mt-1 text-xs font-medium text-emerald-700">
-                  配置済み: {placedAssets.length}件
+                  追加済み: {placedAssets.length}件
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -686,7 +686,7 @@ export default function ScrapbookPage() {
                   type="button"
                   className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800"
                 >
-                  保存
+                  エフェメラを保存
                 </button>
               </div>
             </div>
@@ -702,7 +702,7 @@ export default function ScrapbookPage() {
             >
               {placedAssets.length === 0 && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-stone-400">
-                  素材を選んで追加ボタンから台紙に配置
+                  素材を選んでエフェメラに追加
                 </div>
               )}
 
@@ -1157,7 +1157,7 @@ export default function ScrapbookPage() {
               }}
               className="mt-5 w-full rounded-md bg-emerald-700 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-800"
             >
-              台紙に追加
+              エフェメラに追加
             </button>
           </div>
         </div>
