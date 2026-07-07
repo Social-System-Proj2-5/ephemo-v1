@@ -135,6 +135,87 @@ const mockAssets: EphemeraAsset[] = [
     mediaSrc: "/ephemera/stamps/stamp_visited.png",
     defaultSize: { width: 128, height: 128 },
   },
+  {
+    id: "stamp-kira-1",
+    type: "stamp",
+    title: "Kira 1",
+    description: "きらめきスタンプ",
+    accent: "bg-[#f0c56d]",
+    mediaSrc: "/ephemera/stamps/kira1.png",
+    defaultSize: { width: 72, height: 72 },
+  },
+  {
+    id: "stamp-kira-2",
+    type: "stamp",
+    title: "Kira 2",
+    description: "きらめきスタンプ",
+    accent: "bg-[#f0c56d]",
+    mediaSrc: "/ephemera/stamps/kira2.png",
+    defaultSize: { width: 72, height: 72 },
+  },
+  {
+    id: "stamp-kira-3",
+    type: "stamp",
+    title: "Kira 3",
+    description: "きらめきスタンプ",
+    accent: "bg-[#f0c56d]",
+    mediaSrc: "/ephemera/stamps/kira3.png",
+    defaultSize: { width: 72, height: 72 },
+  },
+  {
+    id: "stamp-kira-4",
+    type: "stamp",
+    title: "Kira 4",
+    description: "きらめきスタンプ",
+    accent: "bg-[#f0c56d]",
+    mediaSrc: "/ephemera/stamps/kira4.png",
+    defaultSize: { width: 72, height: 72 },
+  },
+  {
+    id: "stamp-kira-5",
+    type: "stamp",
+    title: "Kira 5",
+    description: "きらめきスタンプ",
+    accent: "bg-[#f0c56d]",
+    mediaSrc: "/ephemera/stamps/kira5.png",
+    defaultSize: { width: 72, height: 72 },
+  },
+  {
+    id: "stamp-leaf-1",
+    type: "stamp",
+    title: "Leaf 1",
+    description: "葉っぱスタンプ",
+    accent: "bg-[#a9c9a6]",
+    mediaSrc: "/ephemera/stamps/leaf1.png",
+    defaultSize: { width: 112, height: 112 },
+  },
+  {
+    id: "stamp-leaf-2",
+    type: "stamp",
+    title: "Leaf 2",
+    description: "葉っぱスタンプ",
+    accent: "bg-[#a9c9a6]",
+    mediaSrc: "/ephemera/stamps/leaf2.png",
+    defaultSize: { width: 112, height: 112 },
+  },
+  {
+    id: "stamp-leaf-3",
+    type: "stamp",
+    title: "Leaf 3",
+    description: "葉っぱスタンプ",
+    accent: "bg-[#a9c9a6]",
+    mediaSrc: "/ephemera/stamps/leaf3.png",
+    defaultSize: { width: 112, height: 112 },
+  },
+  {
+    id: "stamp-leaf-4",
+    type: "stamp",
+    title: "Leaf 4",
+    description: "葉っぱスタンプ",
+    accent: "bg-[#a9c9a6]",
+    mediaSrc: "/ephemera/stamps/leaf4.png",
+    defaultSize: { width: 112, height: 112 },
+  },
 ];
 
 const assetTypeLabels: Record<AssetType, string> = {
@@ -1408,6 +1489,7 @@ export default function ScrapbookPage() {
                     draggable={!editingTextLayerId}
                     resizable
                     rotatable
+                    origin={false}
                     keepRatio={selectedLayer?.type !== "text"}
                     throttleDrag={0}
                     throttleResize={0}
