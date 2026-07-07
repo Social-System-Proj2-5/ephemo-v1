@@ -2,12 +2,23 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 type GenerateResponse = {
   imageUrl: string | null;
   imageDataUrl: string | null;
   revisedPrompt: string | null;
   prompt: string;
+  error?: string;
+};
+
+type SaveGeneratedResponse = {
+  ephemera?: {
+    id: string;
+    title: string;
+    file_url: string;
+    expires_at: string;
+  };
   error?: string;
 };
 
@@ -86,6 +97,9 @@ export default function AiEphemeraCreatePage() {
   const [generated, setGenerated] = useState<GenerateResponse | null>(null);
   const [error, setError] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
+  const [savedFileUrl, setSavedFileUrl] = useState("");
 
   const previewSrc = generated?.imageDataUrl ?? generated?.imageUrl ?? "";
   const style =
@@ -95,15 +109,6 @@ export default function AiEphemeraCreatePage() {
       (value) => value.trim().length > 0,
     ) || Boolean(sourceImage);
   const canGenerate = hasGenerationInput && !isGenerating;
-  const downloadName = useMemo(() => {
-    const date = new Date().toISOString().slice(0, 10);
-    const baseName = ephemeraName
-      .trim()
-      .replace(/[\\/:*?"<>|]/g, "")
-      .replace(/\s+/g, "-");
-
-    return `${baseName || `ephemera-${date}`}.png`;
-  }, [ephemeraName]);
   const sourceImagePreview = useMemo(
     () => (sourceImage ? URL.createObjectURL(sourceImage) : ""),
     [sourceImage],
@@ -142,6 +147,8 @@ export default function AiEphemeraCreatePage() {
 
     setIsGenerating(true);
     setError("");
+    setSaveMessage("");
+    setSavedFileUrl("");
     setGenerated(null);
 
     try {
@@ -174,6 +181,56 @@ export default function AiEphemeraCreatePage() {
       setError("通信に失敗しました。開発サーバーと環境変数を確認してください。");
     } finally {
       setIsGenerating(false);
+    }
+  }
+
+  async function saveGeneratedEphemera() {
+    if (!generated || isSaving) {
+      return;
+    }
+
+    setIsSaving(true);
+    setError("");
+    setSaveMessage("");
+    setSavedFileUrl("");
+
+    try {
+      const supabase = getSupabaseClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        setError("保存するにはログインが必要です。");
+        return;
+      }
+
+      const response = await fetch("/api/ephemera/save-generated", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: ephemeraName,
+          imageDataUrl: generated.imageDataUrl,
+          imageUrl: generated.imageUrl,
+          prompt: generated.prompt,
+        }),
+      });
+      const result = (await response.json()) as SaveGeneratedResponse;
+
+      if (!response.ok || !result.ephemera) {
+        setError(result.error ?? "画像の保存に失敗しました。");
+        return;
+      }
+
+      setSaveMessage("画像を保存しました。");
+      setSavedFileUrl(result.ephemera.file_url);
+    } catch {
+      setError("画像の保存に失敗しました。Supabase の設定を確認してください。");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -477,13 +534,29 @@ export default function AiEphemeraCreatePage() {
                       placeholder="例: 星空列車の切符"
                     />
                   </div>
-                  <a
-                    href={previewSrc}
-                    download={downloadName}
-                    className="block w-full rounded-md bg-stone-950 px-4 py-3 text-center text-sm font-medium text-white transition hover:bg-stone-800"
+                  {saveMessage && (
+                    <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                      {saveMessage}
+                    </p>
+                  )}
+                  {savedFileUrl && (
+                    <a
+                      href={savedFileUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 transition hover:bg-emerald-100"
+                    >
+                      保存済みファイルを開く
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    onClick={saveGeneratedEphemera}
+                    disabled={isSaving}
+                    className="block w-full rounded-md bg-stone-950 px-4 py-3 text-center text-sm font-medium text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    画像をダウンロード
-                  </a>
+                    {isSaving ? "保存中..." : "画像を保存する"}
+                  </button>
                 </div>
               )}
             </div>
