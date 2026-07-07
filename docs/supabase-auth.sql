@@ -5,7 +5,6 @@ create table if not exists public.profiles (
   username citext not null unique,
   display_name text not null,
   auth_email text not null unique,
-  points integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
