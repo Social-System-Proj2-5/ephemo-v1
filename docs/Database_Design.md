@@ -111,7 +111,6 @@ server/templates/{template_key}.json
 | `title` | text | NO | エフェメラ名 |
 | `file_url` | text | NO | 完成したPDFまたは画像ファイルURL |
 | `file_format` | ephemera_file_format | NO | `pdf` または `image` |
-| `preview_url` | text | YES | 一覧表示用プレビュー画像URL |
 | `metadata` | jsonb | YES | 表示用の補足情報 |
 | `status` | ephemera_status | NO | 状態 |
 | `created_at` | timestamptz | NO | 作成日時 |

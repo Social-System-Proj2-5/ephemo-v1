@@ -1,5 +1,9 @@
 create extension if not exists pgcrypto;
 
+insert into storage.buckets (id, name, public)
+values ('ephemeras', 'ephemeras', true)
+on conflict (id) do nothing;
+
 do $$
 begin
   create type public.ephemera_file_type as enum ('image', 'pdf');
@@ -16,7 +20,6 @@ create table if not exists public.ephemeras (
   title text not null,
   file_type public.ephemera_file_type not null,
   file_url text not null,
-  preview_url text,
 
   created_at timestamptz not null default now(),
   expires_at timestamptz not null default (now() + interval '7 days'),
@@ -39,6 +42,45 @@ create table if not exists public.ephemera_transfer_records (
 
 alter table public.ephemeras enable row level security;
 alter table public.ephemera_transfer_records enable row level security;
+
+drop policy if exists "Ephemera files are publicly readable" on storage.objects;
+drop policy if exists "Users can upload ephemera files" on storage.objects;
+drop policy if exists "Users can update own ephemera files" on storage.objects;
+drop policy if exists "Users can delete own ephemera files" on storage.objects;
+
+create policy "Ephemera files are publicly readable"
+on storage.objects
+for select
+using (bucket_id = 'ephemeras');
+
+create policy "Users can upload ephemera files"
+on storage.objects
+for insert
+with check (
+  bucket_id = 'ephemeras'
+  and auth.uid() is not null
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "Users can update own ephemera files"
+on storage.objects
+for update
+using (
+  bucket_id = 'ephemeras'
+  and (storage.foldername(name))[1] = auth.uid()::text
+)
+with check (
+  bucket_id = 'ephemeras'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "Users can delete own ephemera files"
+on storage.objects
+for delete
+using (
+  bucket_id = 'ephemeras'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
 
 drop trigger if exists set_ephemeras_updated_at on public.ephemeras;
 
