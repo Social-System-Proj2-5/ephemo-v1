@@ -20,7 +20,8 @@ type SharePayload = {
   longitude: number;
 };
 
-const SHARE_REWARD_POINTS = 1;
+const SENDER_SHARE_REWARD_POINTS = 5;
+const RECIPIENT_SHARE_REWARD_POINTS = 1;
 
 function getShareSecret() {
   const secret = process.env.EPHEMERA_SHARE_SECRET;
@@ -263,13 +264,34 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: recordError.message }, { status: 500 });
   }
 
-  const { error: rewardError } = await supabaseAdmin.rpc("add_profile_points", {
-    target_profile_id: payload.senderProfileId,
-    point_amount: SHARE_REWARD_POINTS,
-  });
+  const { error: senderRewardError } = await supabaseAdmin.rpc(
+    "add_profile_points",
+    {
+      target_profile_id: payload.senderProfileId,
+      point_amount: SENDER_SHARE_REWARD_POINTS,
+    },
+  );
 
-  if (rewardError) {
-    return NextResponse.json({ error: rewardError.message }, { status: 500 });
+  if (senderRewardError) {
+    return NextResponse.json(
+      { error: senderRewardError.message },
+      { status: 500 },
+    );
+  }
+
+  const { error: recipientRewardError } = await supabaseAdmin.rpc(
+    "add_profile_points",
+    {
+      target_profile_id: user.id,
+      point_amount: RECIPIENT_SHARE_REWARD_POINTS,
+    },
+  );
+
+  if (recipientRewardError) {
+    return NextResponse.json(
+      { error: recipientRewardError.message },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({
