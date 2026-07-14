@@ -161,11 +161,7 @@ export default function Home() {
               </p>
             ) : null}
 
-            <p className="max-w-3xl text-left text-xl font-semibold leading-8 text-stone-800 sm:text-2xl">
-              日々の記憶をエフェメラとして残し、近くの人とその場で共有します。作成、受け取り、共有履歴の確認をここから始められます。
-            </p>
-
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3">
               <Link
                 href="/ephemera"
                 className="flex min-h-28 items-center justify-between rounded-lg bg-emerald-700 p-5 text-white shadow-sm transition hover:bg-emerald-800"
