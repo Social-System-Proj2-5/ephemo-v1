@@ -20,6 +20,8 @@ type SharePayload = {
   longitude: number;
 };
 
+const SHARE_REWARD_POINTS = 1;
+
 function getShareSecret() {
   const secret = process.env.EPHEMERA_SHARE_SECRET;
 
@@ -259,6 +261,15 @@ export async function POST(request: Request) {
 
   if (recordError) {
     return NextResponse.json({ error: recordError.message }, { status: 500 });
+  }
+
+  const { error: rewardError } = await supabaseAdmin.rpc("add_profile_points", {
+    target_profile_id: payload.senderProfileId,
+    point_amount: SHARE_REWARD_POINTS,
+  });
+
+  if (rewardError) {
+    return NextResponse.json({ error: rewardError.message }, { status: 500 });
   }
 
   return NextResponse.json({
