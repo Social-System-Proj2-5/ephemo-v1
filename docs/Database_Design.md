@@ -150,6 +150,7 @@ public/ephemera/templates/template_tag.png
 ### 6.2 storage.objects の運用
 
 - `save-generated` API は、保存パスを `${user.id}/${Date.now()}-${randomUUID()}.${extension}` の形式で作成する。
+- `save-image` API は、保存パスを `${user.id}/${fileName}` の形式で作成する。
 - Storage RLS は、パス先頭のフォルダ名が `auth.uid()` と一致する場合にアップロード、更新、削除を許可する。
 - bucket `ephemeras` のファイルは公開読み取り可能にする。
 
@@ -189,12 +190,15 @@ public/ephemera/templates/template_tag.png
 
 1. フロントエンドで文字素材または画像素材を編集する。
 2. フロントエンドで完成したエフェメラをPDFまたは画像に変換する。
-3. 現在は `/api/ephemera/save-image` で `public/ephemera/saved/` に完成ファイルを保存する。
-4. 現在の `save-image` API は `ephemeras` へのDB登録を行わない。
-5. DB連携時は `ephemeras.file_url` と `ephemeras.file_type` を保存する。
-6. 作成者と所有者として `creator_profile_id` と `owner_profile_id` を保存する。
-7. 作成日時から7日後を `expires_at` に保存する。SQLデフォルトを利用してよい。
-8. 作成途中の素材や編集データは保存しない。
+3. フロントエンドで `Authorization: Bearer <token>` を付けて `/api/ephemera/save-image` を呼び出す。
+4. API は Supabase Auth のユーザーを取得し、Storage bucket `ephemeras` のユーザーフォルダに完成ファイルをアップロードする。
+5. Storage の公開URLを `file_url` として取得する。
+6. `ephemeras` に `owner_profile_id`, `creator_profile_id`, `title`, `file_type`, `file_url`, `expires_at` を保存する。
+7. `owner_profile_id` と `creator_profile_id` には認証ユーザーのIDを保存する。
+8. `expires_at` には保存時刻から7日後を保存する。
+9. API は `ephemeraId`, `fileName`, `url`, `expiresAt` を返す。
+10. DB登録に失敗した場合は、先にアップロードしたStorageファイルを削除する。
+11. 作成途中の素材や編集データは保存しない。
 
 ## 10. インデックス
 
@@ -244,4 +248,3 @@ public/ephemera/templates/template_tag.png
 - テンプレートを今後も `public/ephemera/templates/*.png` の画像だけで管理するか、JSONメタデータを追加するか。
 - 期限切れエフェメラを物理削除のままにするか、`status` や `deleted_at` を追加して論理削除にするか。
 - 共有履歴に `verification_method` や失敗/キャンセル記録を追加するか。
-- 手動作成エフェメラの保存先を `public/ephemera/saved/` のままにするか、Supabase Storage へ移すか。
