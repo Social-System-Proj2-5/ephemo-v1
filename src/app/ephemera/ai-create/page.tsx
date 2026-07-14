@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 type GenerateResponse = {
@@ -102,8 +102,11 @@ export default function AiEphemeraCreatePage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
-  const [savedFileUrl, setSavedFileUrl] = useState("");
   const [pointsBalance, setPointsBalance] = useState<number | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const sourceImageInputRef = useRef<HTMLInputElement | null>(null);
+  const swipeStartX = useRef<number | null>(null);
+  const swipeStartY = useRef<number | null>(null);
 
   const previewSrc = generated?.imageDataUrl ?? generated?.imageUrl ?? "";
   const style =
@@ -127,6 +130,58 @@ export default function AiEphemeraCreatePage() {
       URL.revokeObjectURL(sourceImagePreview);
     };
   }, [sourceImagePreview]);
+
+  useEffect(() => {
+    function handlePointerDown(event: PointerEvent) {
+      if (
+        isSidebarOpen ||
+        event.clientX > 32 ||
+        (event.pointerType === "mouse" && event.button !== 0)
+      ) {
+        swipeStartX.current = null;
+        swipeStartY.current = null;
+        return;
+      }
+
+      swipeStartX.current = event.clientX;
+      swipeStartY.current = event.clientY;
+    }
+
+    function handlePointerMove(event: PointerEvent) {
+      const startX = swipeStartX.current;
+      const startY = swipeStartY.current;
+
+      if (startX === null || startY === null) {
+        return;
+      }
+
+      const deltaX = event.clientX - startX;
+      const deltaY = Math.abs(event.clientY - startY);
+
+      if (deltaX > 64 && deltaY < 48) {
+        setIsSidebarOpen(true);
+        swipeStartX.current = null;
+        swipeStartY.current = null;
+      }
+    }
+
+    function handlePointerEnd() {
+      swipeStartX.current = null;
+      swipeStartY.current = null;
+    }
+
+    window.addEventListener("pointerdown", handlePointerDown, { passive: true });
+    window.addEventListener("pointermove", handlePointerMove, { passive: true });
+    window.addEventListener("pointerup", handlePointerEnd);
+    window.addEventListener("pointercancel", handlePointerEnd);
+
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerEnd);
+      window.removeEventListener("pointercancel", handlePointerEnd);
+    };
+  }, [isSidebarOpen]);
 
   function mergePromptPart(current: string, addition: string) {
     return current.trim() ? `${current.trim()}。${addition}` : addition;
@@ -161,7 +216,7 @@ export default function AiEphemeraCreatePage() {
       } = await supabase.auth.getSession();
 
       if (!session) {
-        setError("AI生成にはログインが必要です。");
+        setError("AI作成にはログインが必要です。");
         return;
       }
 
@@ -189,7 +244,7 @@ export default function AiEphemeraCreatePage() {
       const result = (await response.json()) as GenerateResponse;
 
       if (!response.ok) {
-        setError(result.error ?? "生成に失敗しました。");
+        setError(result.error ?? "作成に失敗しました。");
         return;
       }
 
@@ -298,12 +353,26 @@ export default function AiEphemeraCreatePage() {
         generatedTemplateStorageKey,
         JSON.stringify({
           imageSrc: previewSrc,
-          title: ephemeraName.trim() || "AI生成エフェメラ",
+          title: ephemeraName.trim() || "AI作成エフェメラ",
           createdAt: Date.now(),
         }),
       );
     } catch {
       setError("画像を次の編集画面へ渡せませんでした。もう一度お試しください。");
+    }
+  }
+
+  function generateFromSidebar() {
+    setIsSidebarOpen(false);
+    generateEphemera();
+  }
+
+  function clearSourceImage() {
+    setSourceImage(null);
+    setGenerated(null);
+
+    if (sourceImageInputRef.current) {
+      sourceImageInputRef.current.value = "";
     }
   }
 
@@ -322,23 +391,70 @@ export default function AiEphemeraCreatePage() {
               AIでエフェメラ作成
             </h1>
           </div>
-          <Link
-            href="/"
-            className="w-fit rounded-md border border-stone-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-stone-100"
-          >
-            ホーム
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/"
+              className="w-fit rounded-md border border-stone-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-stone-100"
+            >
+              ホーム
+            </Link>
+          </div>
         </header>
 
-        <div className="grid gap-5 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start">
-          <aside className="rounded-lg border border-stone-300 bg-white shadow-sm lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
-            <div className="border-b border-stone-200 px-5 py-4">
-              <p className="text-sm font-semibold text-stone-900">生成条件</p>
-              <p className="mt-1 text-xs leading-5 text-stone-500">
-                作りたい文字、イラスト、雰囲気を調整
-              </p>
+        <div>
+          <button
+            type="button"
+            aria-label="サイドバーを開く"
+            onClick={() => {
+              setIsSidebarOpen(true);
+            }}
+            className={`fixed left-0 top-1/2 z-30 flex h-12 w-7 -translate-y-1/2 items-center justify-center rounded-r-md border border-l-0 border-stone-300 bg-white text-lg font-semibold text-stone-700 shadow-sm transition hover:bg-stone-100 ${
+              isSidebarOpen ? "opacity-0 pointer-events-none" : "opacity-100"
+            }`}
+          >
+            &gt;
+          </button>
+
+          {isSidebarOpen && (
+            <button
+              type="button"
+              aria-label="作成条件を閉じる"
+              onClick={() => {
+                setIsSidebarOpen(false);
+              }}
+              className="fixed inset-0 z-40 bg-stone-950/35"
+            />
+          )}
+
+          <aside
+            role="dialog"
+            aria-modal="true"
+            aria-label="AIでエフェメラ作成"
+            inert={!isSidebarOpen}
+            className={`fixed inset-y-0 left-0 z-50 flex w-full max-w-[390px] flex-col border-r border-stone-300 bg-white shadow-xl transition-transform duration-200 sm:max-w-[420px] ${
+              isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-stone-200 px-5 py-4">
+              <div>
+                <p className="text-sm font-semibold text-stone-900">
+                  AIでエフェメラ作成
+                </p>
+                <p className="mt-1 text-xs leading-5 text-stone-500">
+                  入れたい文字、イラスト、スタイルを調整
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSidebarOpen(false);
+                }}
+                className="shrink-0 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium transition hover:bg-stone-100"
+              >
+                閉じる
+              </button>
             </div>
-            <div className="space-y-5 p-5">
+            <div className="flex-1 space-y-5 overflow-y-auto p-5">
               <div>
                 <label
                   htmlFor="source-image"
@@ -349,6 +465,7 @@ export default function AiEphemeraCreatePage() {
                 <div className="mt-2 rounded-md border border-dashed border-stone-300 bg-stone-50 p-3">
                   <input
                     id="source-image"
+                    ref={sourceImageInputRef}
                     type="file"
                     accept="image/png,image/jpeg,image/webp"
                     onChange={(event) => {
@@ -358,13 +475,22 @@ export default function AiEphemeraCreatePage() {
                     className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-stone-950 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
                   />
                   {sourceImagePreview && (
-                    <div className="mt-3 overflow-hidden rounded-md border border-stone-200 bg-white">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={sourceImagePreview}
-                        alt="アップロードした写真"
-                        className="max-h-56 w-full object-contain"
-                      />
+                    <div className="mt-3 space-y-2">
+                      <div className="overflow-hidden rounded-md border border-stone-200 bg-white">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={sourceImagePreview}
+                          alt="アップロードした写真"
+                          className="max-h-56 w-full object-contain"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={clearSourceImage}
+                        className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-100"
+                      >
+                        写真を取り消す
+                      </button>
                     </div>
                   )}
                 </div>
@@ -509,13 +635,11 @@ export default function AiEphemeraCreatePage() {
 
               <button
                 type="button"
-                onClick={() => {
-                  generateEphemera();
-                }}
+                onClick={generateFromSidebar}
                 disabled={!canGenerate}
                 className="w-full rounded-md bg-emerald-700 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isGenerating ? "生成中..." : "AIでエフェメラを生成"}
+                {isGenerating ? "作成中..." : "AIでエフェメラ作成"}
               </button>
             </div>
           </aside>
@@ -523,9 +647,9 @@ export default function AiEphemeraCreatePage() {
           <section className="min-w-0">
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="text-xl font-semibold">生成プレビュー</h2>
+                <h2 className="text-xl font-semibold">作成プレビュー</h2>
                 <p className="mt-1 text-sm text-stone-500">
-                  サイドバーの条件を調整しながら、生成結果を確認
+                  画面左端をスワイプするか矢印でサイドバーを開き、エフェメラを作成してください。
                 </p>
               </div>
             </div>
@@ -535,26 +659,26 @@ export default function AiEphemeraCreatePage() {
                 {isGenerating ? (
                   <div className="px-6 text-center">
                     <p className="text-sm font-semibold text-stone-800">
-                      生成しています
+                      作成しています
                     </p>
                     <p className="mt-2 text-xs leading-5 text-stone-600">
-                      画像生成には少し時間がかかります。
+                      エフェメラ作成には少し時間がかかります。
                     </p>
                   </div>
                 ) : previewSrc ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={previewSrc}
-                    alt="生成されたエフェメラ"
+                    alt="作成されたエフェメラ"
                     className="block max-h-[calc(68vh-2rem)] w-auto max-w-full rounded-md object-contain"
                   />
                 ) : (
                   <div className="mx-auto max-w-sm px-6 text-center">
                     <p className="text-sm font-semibold text-stone-800">
-                      まだ生成されていません
+                      まだ作成されていません
                     </p>
                     <p className="mt-2 text-xs leading-5 text-stone-600">
-                      サイドバーに説明を入力して、エフェメラ画像を生成してください。
+                      サイドバーを開いてエフェメラを作成してください。
                     </p>
                   </div>
                 )}
