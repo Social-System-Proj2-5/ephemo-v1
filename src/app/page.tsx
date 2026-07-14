@@ -155,7 +155,7 @@ export default function Home() {
 
   if (isCheckingSession || isClaimingShare) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f7f4ef] text-stone-950">
+      <main className="flex min-h-dvh items-center justify-center bg-[#f7f4ef] text-stone-950">
         <p className="text-sm font-medium text-stone-600">
           {claimMessage || "読み込み中"}
         </p>
@@ -164,8 +164,8 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f4ef] text-stone-950">
-      <section className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 py-6 sm:px-8 lg:px-10">
+    <main className="min-h-dvh bg-[#f7f4ef] text-stone-950">
+      <section className="mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-5 py-4 sm:px-8 sm:py-6 lg:px-10">
         <header className="flex items-center justify-between gap-3 border-b border-stone-300 pb-4">
           <div className="min-w-0">
             <p className="text-sm font-medium text-emerald-700">Ephemo</p>
@@ -195,7 +195,7 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="flex flex-1 justify-center pt-10 sm:pt-14">
+        <div className="flex flex-1 justify-center pt-6 sm:pt-14">
           <section className="mx-auto w-full max-w-6xl space-y-6">
             {claimMessage ? (
               <p className="max-w-2xl rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
@@ -206,7 +206,7 @@ export default function Home() {
             <div className="grid gap-3">
               <Link
                 href="/ephemera"
-                className="flex min-h-28 items-center justify-between rounded-lg bg-emerald-800 p-5 text-white shadow-sm transition hover:bg-emerald-900"
+                className="flex min-h-24 items-center justify-between rounded-lg bg-emerald-800 p-5 text-white shadow-sm transition hover:bg-emerald-900 sm:min-h-28"
               >
                 <span className="flex min-w-0 items-center gap-4">
                   <span className="flex size-12 shrink-0 items-center justify-center rounded-md bg-white/15">
@@ -234,7 +234,7 @@ export default function Home() {
               </Link>
               <Link
                 href="/ephemera/transfers"
-                className="flex min-h-28 items-center justify-between rounded-lg bg-sky-800 p-5 text-white shadow-sm transition hover:bg-sky-900"
+                className="flex min-h-24 items-center justify-between rounded-lg bg-sky-800 p-5 text-white shadow-sm transition hover:bg-sky-900 sm:min-h-28"
               >
                 <span className="flex min-w-0 items-center gap-4">
                   <span className="flex size-12 shrink-0 items-center justify-center rounded-md bg-white/15">
@@ -262,7 +262,7 @@ export default function Home() {
               </Link>
               <Link
                 href="/ephemera/create"
-                className="flex min-h-28 items-center justify-between rounded-lg bg-stone-950 p-5 text-white shadow-sm transition hover:bg-black"
+                className="flex min-h-24 items-center justify-between rounded-lg bg-stone-950 p-5 text-white shadow-sm transition hover:bg-black sm:min-h-28"
               >
                 <span className="flex min-w-0 items-center gap-4">
                   <span className="flex size-12 shrink-0 items-center justify-center rounded-md bg-white/15">
@@ -290,7 +290,7 @@ export default function Home() {
               </Link>
               <Link
                 href="/ephemera/ai-create"
-                className="flex min-h-28 items-center justify-between rounded-lg border border-slate-300 bg-slate-50 p-5 text-slate-950 shadow-sm transition hover:bg-slate-100"
+                className="flex min-h-24 items-center justify-between rounded-lg border border-slate-300 bg-slate-50 p-5 text-slate-950 shadow-sm transition hover:bg-slate-100 sm:min-h-28"
               >
                 <span className="flex min-w-0 items-center gap-4">
                   <span className="flex size-12 shrink-0 items-center justify-center rounded-md bg-slate-200">

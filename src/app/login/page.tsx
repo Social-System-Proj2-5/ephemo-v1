@@ -78,8 +78,8 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f4ef] px-5 py-10 text-stone-950 sm:px-8 lg:px-10">
-      <section className="mx-auto flex min-h-screen w-full max-w-6xl items-center justify-center">
+    <main className="min-h-dvh bg-[#f7f4ef] px-5 py-6 text-stone-950 sm:px-8 sm:py-10 lg:px-10">
+      <section className="mx-auto flex min-h-[calc(100dvh-3rem)] w-full max-w-6xl items-center justify-center sm:min-h-[calc(100dvh-5rem)]">
         <div className="w-full max-w-md rounded-lg border border-stone-300 bg-white p-6 shadow-sm">
         <div className="mb-6">
           <p className="text-sm font-medium text-emerald-700">Ephemo</p>
