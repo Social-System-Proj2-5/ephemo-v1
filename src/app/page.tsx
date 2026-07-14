@@ -219,7 +219,7 @@ export default function Home() {
                     AI Create
                   </span>
                   <span className="mt-1 block text-lg font-semibold">
-                    AIによるエフェメラ作成
+                    AIでエフェメラ作成
                   </span>
                 </span>
                 <span className="text-2xl" aria-hidden="true">
