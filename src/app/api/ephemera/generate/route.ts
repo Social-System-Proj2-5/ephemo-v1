@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 type GenerateEphemeraBody = {
   text?: string;
@@ -26,6 +27,17 @@ type OpenAIImagesResponse = {
 
 const EPHEMERA_PROMPT_PREFIX =
   "Create one complete vintage ephemera image, highly detailed. Show the entire ephemera object fully inside the image without cropping.";
+const AI_GENERATION_POINT_COST = 2;
+
+function getBearerToken(request: Request) {
+  const authorization = request.headers.get("authorization") ?? "";
+
+  if (!authorization.startsWith("Bearer ")) {
+    return "";
+  }
+
+  return authorization.slice("Bearer ".length).trim();
+}
 
 function getStringValue(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value : undefined;
@@ -60,6 +72,27 @@ export async function POST(request: Request) {
     );
   }
 
+  const token = getBearerToken(request);
+
+  if (!token) {
+    return NextResponse.json(
+      { error: "AI生成にはログインが必要です。" },
+      { status: 401 },
+    );
+  }
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabaseAdmin.auth.getUser(token);
+
+  if (userError || !user) {
+    return NextResponse.json(
+      { error: "ログイン情報が無効です。もう一度ログインしてください。" },
+      { status: 401 },
+    );
+  }
+
   const body = await readInput(request);
   const ephemeraText = body.text?.trim();
   const illustration = body.illustration?.trim();
@@ -70,6 +103,25 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "文字・イラスト・写真のいずれかを入力してください。" },
       { status: 400 },
+    );
+  }
+
+  const { data: remainingPoints, error: spendError } = await supabaseAdmin.rpc(
+    "spend_profile_points",
+    {
+      target_profile_id: user.id,
+      point_amount: AI_GENERATION_POINT_COST,
+    },
+  );
+
+  if (spendError) {
+    return NextResponse.json({ error: spendError.message }, { status: 500 });
+  }
+
+  if (remainingPoints === null) {
+    return NextResponse.json(
+      { error: "ポイントが不足しています。AI生成には2ポイント必要です。" },
+      { status: 402 },
     );
   }
 
@@ -101,6 +153,8 @@ export async function POST(request: Request) {
   const result = (await response.json()) as OpenAIImagesResponse;
 
   if (!response.ok) {
+    await refundGenerationPoints(user.id);
+
     return NextResponse.json(
       {
         error:
@@ -114,6 +168,8 @@ export async function POST(request: Request) {
   const image = result.data?.[0];
 
   if (!image?.b64_json && !image?.url) {
+    await refundGenerationPoints(user.id);
+
     return NextResponse.json(
       { error: "生成画像をレスポンスから取得できませんでした。" },
       { status: 502 },
@@ -125,6 +181,14 @@ export async function POST(request: Request) {
     imageDataUrl: image.b64_json ? `data:image/png;base64,${image.b64_json}` : null,
     revisedPrompt: image.revised_prompt ?? null,
     prompt: fullPrompt,
+    remainingPoints,
+  });
+}
+
+async function refundGenerationPoints(profileId: string) {
+  await supabaseAdmin.rpc("add_profile_points", {
+    target_profile_id: profileId,
+    point_amount: AI_GENERATION_POINT_COST,
   });
 }
 

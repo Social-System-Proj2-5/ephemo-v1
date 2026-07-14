@@ -9,6 +9,7 @@ type GenerateResponse = {
   imageDataUrl: string | null;
   revisedPrompt: string | null;
   prompt: string;
+  remainingPoints?: number;
   error?: string;
 };
 
@@ -100,6 +101,7 @@ export default function AiEphemeraCreatePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [savedFileUrl, setSavedFileUrl] = useState("");
+  const [pointsBalance, setPointsBalance] = useState<number | null>(null);
 
   const previewSrc = generated?.imageDataUrl ?? generated?.imageUrl ?? "";
   const style =
@@ -152,14 +154,28 @@ export default function AiEphemeraCreatePage() {
     setGenerated(null);
 
     try {
+      const supabase = getSupabaseClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        setError("AI生成にはログインが必要です。");
+        return;
+      }
+
       const response = nextInput.sourceImage
         ? await fetch("/api/ephemera/generate", {
             method: "POST",
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
             body: createGenerateFormData(nextInput),
           })
         : await fetch("/api/ephemera/generate", {
             method: "POST",
             headers: {
+              Authorization: `Bearer ${session.access_token}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
@@ -177,6 +193,7 @@ export default function AiEphemeraCreatePage() {
       }
 
       setGenerated(result);
+      setPointsBalance(result.remainingPoints ?? null);
     } catch {
       setError("通信に失敗しました。開発サーバーと環境変数を確認してください。");
     } finally {
@@ -278,6 +295,11 @@ export default function AiEphemeraCreatePage() {
         <header className="mb-8 flex flex-col gap-4 border-b border-stone-300 pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-medium text-emerald-700">AI Create</p>
+            {pointsBalance !== null && (
+              <p className="mt-2 text-sm font-medium text-stone-600">
+                Points: {pointsBalance}
+              </p>
+            )}
             <h1 className="text-3xl font-semibold tracking-normal">
               テキストからエフェメラを生成
             </h1>
