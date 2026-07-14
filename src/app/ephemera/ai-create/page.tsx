@@ -296,7 +296,7 @@ export default function AiEphemeraCreatePage() {
           <div>
             <p className="text-sm font-medium text-emerald-700">AI Create</p>
             <h1 className="text-3xl font-semibold tracking-normal">
-              テキストからエフェメラを生成
+              AIによるエフェメラ作成
             </h1>
           </div>
           <Link
