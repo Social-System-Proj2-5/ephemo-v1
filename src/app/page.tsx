@@ -5,14 +5,40 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
+type ClaimResponse = {
+  ok?: boolean;
+  message?: string;
+  error?: string;
+};
+
+function getCurrentPosition() {
+  return new Promise<GeolocationPosition>((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("現在地を取得できないブラウザです。"));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 10000,
+    });
+  });
+}
+
 export default function Home() {
   const router = useRouter();
   const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [claimMessage, setClaimMessage] = useState("");
+  const [isClaimingShare, setIsClaimingShare] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
 
     async function checkSession() {
+      const shareToken = new URLSearchParams(window.location.search).get(
+        "share",
+      );
       const supabase = getSupabaseClient();
       const {
         data: { session },
@@ -23,8 +49,66 @@ export default function Home() {
       }
 
       if (!session) {
-        router.replace("/login");
+        router.replace(
+          shareToken
+            ? `/login?share=${encodeURIComponent(shareToken)}`
+            : "/login",
+        );
         return;
+      }
+
+      if (shareToken) {
+        setIsClaimingShare(true);
+        setClaimMessage("共有リンクを確認しています。");
+
+        try {
+          const position = await getCurrentPosition();
+          const response = await fetch("/api/ephemera/share/claim", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              token: shareToken,
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+            }),
+          });
+          const result = (await response.json()) as ClaimResponse;
+
+          if (!isMounted) {
+            return;
+          }
+
+          if (!response.ok || !result.ok) {
+            setClaimMessage(
+              result.message ??
+                result.error ??
+                "この共有リンクは利用できません。",
+            );
+            window.history.replaceState(null, "", "/");
+            setIsClaimingShare(false);
+            setIsCheckingSession(false);
+            return;
+          }
+
+          setClaimMessage(result.message ?? "エフェメラを受け取りました。");
+          router.replace("/ephemera");
+          return;
+        } catch (error: unknown) {
+          if (!isMounted) {
+            return;
+          }
+
+          setClaimMessage(
+            error instanceof Error
+              ? error.message
+              : "共有リンクを確認できませんでした。",
+          );
+          window.history.replaceState(null, "", "/");
+          setIsClaimingShare(false);
+        }
       }
 
       setIsCheckingSession(false);
@@ -39,10 +123,12 @@ export default function Home() {
     };
   }, [router]);
 
-  if (isCheckingSession) {
+  if (isCheckingSession || isClaimingShare) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f7f4ef] text-stone-950">
-        <p className="text-sm font-medium text-stone-600">読み込み中</p>
+        <p className="text-sm font-medium text-stone-600">
+          {claimMessage || "読み込み中"}
+        </p>
       </main>
     );
   }
@@ -69,6 +155,12 @@ export default function Home() {
 
         <div className="flex flex-1 items-center py-8">
           <section className="mx-auto w-full max-w-3xl space-y-8">
+            {claimMessage ? (
+              <p className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                {claimMessage}
+              </p>
+            ) : null}
+
             <div className="space-y-4">
               <p className="text-sm font-medium text-stone-600">
                 写真・動画・音声から日々の記録を残す
