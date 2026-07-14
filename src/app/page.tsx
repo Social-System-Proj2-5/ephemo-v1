@@ -173,10 +173,10 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="grid gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Link
                 href="/ephemera"
-                className="flex min-h-24 items-center justify-between rounded-lg bg-emerald-700 p-5 text-white shadow-sm transition hover:bg-emerald-800"
+                className="flex min-h-32 items-center justify-between rounded-lg bg-emerald-700 p-5 text-white shadow-sm transition hover:bg-emerald-800"
               >
                 <span>
                   <span className="block text-sm font-medium text-emerald-100">
@@ -191,8 +191,24 @@ export default function Home() {
                 </span>
               </Link>
               <Link
+                href="/ephemera/transfers"
+                className="flex min-h-32 items-center justify-between rounded-lg bg-sky-700 p-5 text-white shadow-sm transition hover:bg-sky-800"
+              >
+                <span>
+                  <span className="block text-sm font-medium text-sky-100">
+                    Transfers
+                  </span>
+                  <span className="mt-1 block text-xl font-semibold">
+                    共有履歴
+                  </span>
+                </span>
+                <span className="text-2xl" aria-hidden="true">
+                  ›
+                </span>
+              </Link>
+              <Link
                 href="/ephemera/create"
-                className="flex min-h-24 items-center justify-between rounded-lg bg-stone-950 p-5 text-white shadow-sm transition hover:bg-stone-800"
+                className="flex min-h-32 items-center justify-between rounded-lg bg-stone-950 p-5 text-white shadow-sm transition hover:bg-stone-800"
               >
                 <span>
                   <span className="block text-sm font-medium text-stone-300">
@@ -208,7 +224,7 @@ export default function Home() {
               </Link>
               <Link
                 href="/ephemera/ai-create"
-                className="flex min-h-24 items-center justify-between rounded-lg border border-stone-300 bg-white p-5 text-stone-950 shadow-sm transition hover:bg-stone-100"
+                className="flex min-h-32 items-center justify-between rounded-lg border border-stone-300 bg-white p-5 text-stone-950 shadow-sm transition hover:bg-stone-100"
               >
                 <span>
                   <span className="block text-sm font-medium text-stone-500">

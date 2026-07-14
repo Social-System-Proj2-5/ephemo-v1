@@ -30,6 +30,9 @@
 | `src/app/api/ephemera/save-generated/route.ts` | `/api/ephemera/save-generated` | POST | AI生成エフェメラを Supabase Storage と `ephemeras` に保存 |
 | `src/app/api/ephemera/route.ts` | `/api/ephemera` | GET | 所有している有効期限内のエフェメラ一覧取得 |
 | `src/app/api/ephemera/[ephemeraId]/route.ts` | `/api/ephemera/{ephemera_id}` | GET | 所有している有効期限内のエフェメラ詳細取得 |
+| `src/app/api/ephemera/share/route.ts` | `/api/ephemera/share` | POST | 対面共有用トークン生成 |
+| `src/app/api/ephemera/share/claim/route.ts` | `/api/ephemera/share/claim` | POST | 共有トークンを使った受取確定 |
+| `src/app/api/ephemera/transfers/route.ts` | `/api/ephemera/transfers` | GET | 自分が関係する共有履歴一覧取得 |
 
 ### 関連画面
 
@@ -37,9 +40,10 @@
 | --- | --- | --- |
 | `src/app/signup/page.tsx` | 新規登録画面 | `POST /api/auth/signup` |
 | `src/app/login/page.tsx` | ログイン画面 | `POST /api/auth/login` |
-| `src/app/page.tsx` | ホーム画面、セッション確認、ログアウト | Supabase client |
-| `src/app/ephemera/page.tsx` | エフェメラ一覧画面 | `GET /api/ephemera` |
+| `src/app/page.tsx` | ホーム画面、セッション確認、ログアウト、共有受取、共有履歴画面への遷移 | Supabase client, `POST /api/ephemera/share/claim` |
+| `src/app/ephemera/page.tsx` | エフェメラ一覧・共有開始画面 | `GET /api/ephemera`, `POST /api/ephemera/share` |
 | `src/app/ephemera/[ephemeraId]/page.tsx` | エフェメラ詳細画面 | `GET /api/ephemera/{ephemera_id}` |
+| `src/app/ephemera/transfers/page.tsx` | 共有履歴一覧画面 | `GET /api/ephemera/transfers` |
 | `src/app/ephemera/create/page.tsx` | 手動エフェメラ作成画面 | `POST /api/ephemera/save-image` |
 | `src/app/ephemera/ai-create/page.tsx` | AIエフェメラ作成画面 | `POST /api/ephemera/generate`, `POST /api/ephemera/save-generated` |
 
@@ -109,8 +113,9 @@
 
 | No | 状態 | 機能 | Method | URL | 実装ファイル | フロントから送るもの | バックエンドが返すもの | DBとの関わり |
 | --: | --- | --- | --- | --- | --- | --- | --- | --- |
-| 15 | 未実装 | 対面共有確定 | POST | `/api/ephemera/transfers/confirm` | なし | `ephemera_id`, `recipient_profile_id`, `confirm: true` | 共有成立結果、現在所有者 | `ephemeras.owner_profile_id` を共有先へ変更し、`ephemera_transfer_records` にスナップショットを追加 |
-| 16 | 未実装 | 共有履歴取得 | GET | `/api/ephemera/transfers` | なし | `limit`, `offset` 任意 | `transfer_records[]` | 自分が `sender_profile_id` または `recipient_profile_id` の `ephemera_transfer_records` を取得 |
+| 15-1 | 実装済み | 対面共有トークン生成 | POST | `/api/ephemera/share` | `src/app/api/ephemera/share/route.ts` | `Authorization: Bearer <token>`, `ephemeraId`, `latitude`, `longitude` | `share.token`, `share.expiresAt`, `share.title`, `share.fileUrl` | 所有中かつ有効期限内の `ephemeras` を確認し、10分間有効な署名付き共有トークンを生成 |
+| 15-2 | 実装済み | 対面共有受取確定 | POST | `/api/ephemera/share/claim` | `src/app/api/ephemera/share/claim/route.ts` | `Authorization: Bearer <token>`, `token`, `latitude`, `longitude` | `ok`, `message`, `ephemera` | 共有場所から100m以内かつ10分以内の場合に所有者を変更し、`ephemera_transfer_records` にスナップショットを追加 |
+| 16 | 実装済み | 共有履歴取得 | GET | `/api/ephemera/transfers` | `src/app/api/ephemera/transfers/route.ts` | `Authorization: Bearer <token>`, `limit`, `offset` 任意 | `transferRecords[]`, `pagination` | 自分が `sender_profile_id` または `recipient_profile_id` の `ephemera_transfer_records` と参加プロフィールを取得 |
 | 17 | 未実装 | 共有履歴詳細取得 | GET | `/api/ephemera/transfers/{record_id}` | なし | `record_id` | 共有詳細 | `ephemera_transfer_records` を取得 |
 
 ### 4.6 メンテナンス API / 内部処理
@@ -121,7 +126,8 @@
 
 ## 5. 共有確定時のバックエンド処理
 
-共有確定時は以下を同一トランザクションで処理する。
+共有確定時は、設計上は以下を同一トランザクションで処理する。
+現在の `share/claim` API は所有者更新と履歴追加を順番に実行しており、SQL関数によるトランザクション化は未実装。
 
 1. 共有対象エフェメラを取得してロックする。
 2. 共有元プロフィールと共有先プロフィールが同一でないことを確認する。
@@ -159,6 +165,6 @@
 - AI生成エフェメラ保存 API: `POST /api/ephemera/save-generated`
 - 手動作成エフェメラ保存 API: `POST /api/ephemera/save-image`（Storage保存と `ephemeras` へのDB登録を実装済み）
 - エフェメラ一覧/詳細 API: `GET /api/ephemera`, `GET /api/ephemera/{ephemera_id}`
-- 対面共有確定 API: `POST /api/ephemera/transfers/confirm`
+- 対面共有 API: `POST /api/ephemera/share`, `POST /api/ephemera/share/claim`
 - 共有履歴 API: `GET /api/ephemera/transfers`
 - 期限切れエフェメラ自動削除処理: `public.delete_expired_ephemeras()`

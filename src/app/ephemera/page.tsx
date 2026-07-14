@@ -212,19 +212,27 @@ export default function EphemeraPage() {
   return (
     <main className="min-h-screen bg-[#f7f4ef] px-5 py-6 text-stone-950 sm:px-8 lg:px-10">
       <div className="mx-auto max-w-6xl">
-        <header className="mb-8 flex items-center justify-between border-b border-stone-300 pb-4">
+        <header className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-stone-300 pb-4">
           <div>
             <p className="text-sm font-medium text-emerald-700">Ephemera</p>
             <h1 className="text-2xl font-semibold tracking-normal">
               エフェメラ一覧
             </h1>
           </div>
-          <Link
-            href="/"
-            className="rounded-md border border-stone-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-stone-100"
-          >
-            ホーム
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/ephemera/transfers"
+              className="rounded-md border border-stone-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-stone-100"
+            >
+              共有履歴
+            </Link>
+            <Link
+              href="/"
+              className="rounded-md border border-stone-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-stone-100"
+            >
+              ホーム
+            </Link>
+          </div>
         </header>
 
         {shareMessage ? (
@@ -282,19 +290,21 @@ export default function EphemeraPage() {
                       あと{getRemainingDays(item.expires_at)}日
                     </span>
                   </div>
-                  <Link
-                    href={`/ephemera/${item.id}`}
-                    className="flex w-full items-center justify-center rounded-md border border-stone-300 bg-white px-4 py-2.5 text-sm font-medium transition hover:bg-stone-100"
-                  >
-                    詳細を見る
-                  </Link>
-                  <button
-                    className="w-full rounded-md bg-stone-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
-                    disabled={sharingId === item.id}
-                    onClick={() => void handleShare(item)}
-                  >
-                    {sharingId === item.id ? "生成中" : "共有QRを生成"}
-                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Link
+                      href={`/ephemera/${item.id}`}
+                      className="flex min-h-10 items-center justify-center rounded-md border border-stone-300 bg-white px-2 py-2 text-center text-sm font-medium transition hover:bg-stone-100"
+                    >
+                      詳細を見る
+                    </Link>
+                    <button
+                      className="min-h-10 rounded-md bg-stone-950 px-2 py-2 text-sm font-medium text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
+                      disabled={sharingId === item.id}
+                      onClick={() => void handleShare(item)}
+                    >
+                      {sharingId === item.id ? "生成中" : "共有QRを生成"}
+                    </button>
+                  </div>
                 </div>
               </article>
             ))}
