@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -207,12 +208,24 @@ export default function Home() {
                 href="/ephemera"
                 className="flex min-h-28 items-center justify-between rounded-lg bg-emerald-700 p-5 text-white shadow-sm transition hover:bg-emerald-800"
               >
-                <span>
-                  <span className="block text-sm font-medium text-emerald-100">
-                    Collection
+                <span className="flex min-w-0 items-center gap-4">
+                  <span className="flex size-12 shrink-0 items-center justify-center rounded-md bg-white/15">
+                    <Image
+                      src="/icons/archive.svg"
+                      alt=""
+                      aria-hidden="true"
+                      width={24}
+                      height={24}
+                      className="size-6 invert"
+                    />
                   </span>
-                  <span className="mt-1 block text-lg font-semibold">
-                    エフェメラ一覧
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-emerald-100">
+                      Collection
+                    </span>
+                    <span className="mt-1 block text-lg font-semibold">
+                      エフェメラ一覧
+                    </span>
                   </span>
                 </span>
                 <span className="text-2xl" aria-hidden="true">
@@ -223,12 +236,24 @@ export default function Home() {
                 href="/ephemera/transfers"
                 className="flex min-h-28 items-center justify-between rounded-lg bg-sky-700 p-5 text-white shadow-sm transition hover:bg-sky-800"
               >
-                <span>
-                  <span className="block text-sm font-medium text-sky-100">
-                    Transfers
+                <span className="flex min-w-0 items-center gap-4">
+                  <span className="flex size-12 shrink-0 items-center justify-center rounded-md bg-white/15">
+                    <Image
+                      src="/icons/repeat-2.svg"
+                      alt=""
+                      aria-hidden="true"
+                      width={24}
+                      height={24}
+                      className="size-6 invert"
+                    />
                   </span>
-                  <span className="mt-1 block text-lg font-semibold">
-                    共有履歴
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-sky-100">
+                      Transfers
+                    </span>
+                    <span className="mt-1 block text-lg font-semibold">
+                      共有履歴
+                    </span>
                   </span>
                 </span>
                 <span className="text-2xl" aria-hidden="true">
@@ -239,12 +264,24 @@ export default function Home() {
                 href="/ephemera/create"
                 className="flex min-h-28 items-center justify-between rounded-lg bg-stone-950 p-5 text-white shadow-sm transition hover:bg-stone-800"
               >
-                <span>
-                  <span className="block text-sm font-medium text-stone-300">
-                    Create
+                <span className="flex min-w-0 items-center gap-4">
+                  <span className="flex size-12 shrink-0 items-center justify-center rounded-md bg-white/15">
+                    <Image
+                      src="/icons/pen-line.svg"
+                      alt=""
+                      aria-hidden="true"
+                      width={24}
+                      height={24}
+                      className="size-6 invert"
+                    />
                   </span>
-                  <span className="mt-1 block text-lg font-semibold">
-                    エフェメラ作成
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-stone-300">
+                      Create
+                    </span>
+                    <span className="mt-1 block text-lg font-semibold">
+                      エフェメラ作成
+                    </span>
                   </span>
                 </span>
                 <span className="text-2xl" aria-hidden="true">
@@ -255,12 +292,24 @@ export default function Home() {
                 href="/ephemera/ai-create"
                 className="flex min-h-28 items-center justify-between rounded-lg border border-stone-300 bg-white p-5 text-stone-950 shadow-sm transition hover:bg-stone-100"
               >
-                <span>
-                  <span className="block text-sm font-medium text-stone-500">
-                    AI Create
+                <span className="flex min-w-0 items-center gap-4">
+                  <span className="flex size-12 shrink-0 items-center justify-center rounded-md bg-stone-100">
+                    <Image
+                      src="/icons/sparkles.svg"
+                      alt=""
+                      aria-hidden="true"
+                      width={24}
+                      height={24}
+                      className="size-6"
+                    />
                   </span>
-                  <span className="mt-1 block text-lg font-semibold">
-                    AIでエフェメラ作成
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-stone-500">
+                      AI Create
+                    </span>
+                    <span className="mt-1 block text-lg font-semibold">
+                      AIでエフェメラ作成
+                    </span>
                   </span>
                 </span>
                 <span className="text-2xl" aria-hidden="true">
