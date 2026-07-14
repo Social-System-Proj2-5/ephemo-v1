@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Moveable from "react-moveable";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -401,22 +402,23 @@ function sanitizeFileName(value: string) {
 }
 
 export default function ScrapbookPage() {
+  const router = useRouter();
   const [selectedBaseId, setSelectedBaseId] = useState<BaseId>("receipt");
   const [layers, setLayers] = useState<EphemeraLayer[]>([
     {
       id: "text-1",
       type: "text",
-      text: "今日だけの記録",
+      text: "テキスト",
       color: "#2b241f",
-      fontSize: 24,
+      fontSize: 20,
       fontFamily: "serif",
       fontWeight: "700",
       fontStyle: "normal",
       textAlign: "center",
       x: 72,
       y: 64,
-      width: 260,
-      height: 56,
+      width: 220,
+      height: 48,
       rotation: 0,
       zIndex: 1,
     },
@@ -1129,6 +1131,7 @@ export default function ScrapbookPage() {
       setSavedEphemeraName(trimmedName);
       setSavedEphemeraUrl(result.url ?? null);
       setIsSaveDialogOpen(false);
+      router.push("/ephemera");
     } catch (error) {
       setExportError(
         error instanceof Error

@@ -24,6 +24,18 @@ function sanitizeFileName(value: string) {
   return sanitized || "ephemera";
 }
 
+function sanitizeStorageFileName(value: string) {
+  const sanitized = value
+    .trim()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+
+  return sanitized || "ephemera";
+}
+
 function encodeUtf16BeHex(value: string) {
   const bytes: number[] = [];
 
@@ -202,10 +214,11 @@ export async function POST(request: Request) {
   }
 
   const saveFormat: SaveFormat = format === "pdf" ? "pdf" : "png";
-  const safeName = sanitizeFileName(typeof name === "string" ? name : "");
+  const title = sanitizeFileName(typeof name === "string" ? name : "");
+  const storageName = sanitizeStorageFileName(title);
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const extension = saveFormat === "pdf" ? "pdf" : "png";
-  const fileName = `${safeName}-${timestamp}.${extension}`;
+  const fileName = `${storageName}-${timestamp}.${extension}`;
   const storagePath = `${userData.user.id}/${fileName}`;
   const bytes = Buffer.from(await file.arrayBuffer());
   const parsedTextLayers =
@@ -239,7 +252,7 @@ export async function POST(request: Request) {
     .insert({
       owner_profile_id: userData.user.id,
       creator_profile_id: userData.user.id,
-      title: safeName,
+      title,
       file_type: saveFormat === "pdf" ? "pdf" : "image",
       file_url: publicUrl,
       expires_at: expiresAt.toISOString(),
