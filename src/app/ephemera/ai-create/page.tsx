@@ -379,19 +379,19 @@ export default function AiEphemeraCreatePage() {
   return (
     <main className="min-h-screen bg-[#f7f4ef] px-5 py-6 text-stone-950 sm:px-8 lg:px-10">
       <div className="mx-auto max-w-7xl">
-        <header className="mb-8 flex flex-col gap-4 border-b border-stone-300 pb-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+        <header className="mb-8 flex items-start justify-between gap-3 border-b border-stone-300 pb-4">
+          <div className="min-w-0">
             <p className="text-sm font-medium text-emerald-700">AI Create</p>
             {pointsBalance !== null && (
               <p className="mt-2 text-sm font-medium text-stone-600">
                 Points: {pointsBalance}
               </p>
             )}
-            <h1 className="text-3xl font-semibold tracking-normal">
+            <h1 className="text-2xl font-semibold tracking-normal sm:text-3xl">
               AIでエフェメラ作成
             </h1>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="shrink-0">
             <Link
               href="/"
               className="w-fit rounded-md border border-stone-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-stone-100"
