@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Moveable from "react-moveable";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -13,7 +14,7 @@ import type {
   OnRotateStart,
 } from "react-moveable";
 
-type BaseId = "receipt" | "ticket" | "card";
+type BaseId = string;
 type AssetType = "image" | "stamp";
 type LayerType = "text" | AssetType;
 type SaveFormat = "png" | "pdf";
@@ -32,6 +33,13 @@ type EphemeraBase = {
   description: string;
   accent: string;
   imageSrc: string;
+  imageFit?: "cover" | "contain";
+};
+
+type StoredGeneratedTemplate = {
+  imageSrc?: string;
+  title?: string;
+  createdAt?: number;
 };
 
 type EphemeraAsset = {
@@ -116,6 +124,8 @@ const bases: EphemeraBase[] = [
     imageSrc: "/ephemera/templates/template_tag.png",
   },
 ];
+
+const generatedTemplateStorageKey = "ephemo:generated-template";
 
 const mockAssets: EphemeraAsset[] = [
   {
@@ -298,6 +308,9 @@ function cloneLayers(items: EphemeraLayer[]) {
 function loadCanvasImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image();
+    if (src.startsWith("http://") || src.startsWith("https://")) {
+      image.crossOrigin = "anonymous";
+    }
     image.onload = () => {
       resolve(image);
     };
@@ -400,23 +413,64 @@ function sanitizeFileName(value: string) {
   return sanitized || "ephemera";
 }
 
+function isSupportedTemplateImageSrc(value: string | undefined): value is string {
+  if (!value) {
+    return false;
+  }
+
+  return (
+    value.startsWith("data:image/") ||
+    value.startsWith("http://") ||
+    value.startsWith("https://")
+  );
+}
+
+function readGeneratedTemplateBase() {
+  try {
+    const rawTemplate = sessionStorage.getItem(generatedTemplateStorageKey);
+
+    if (!rawTemplate) {
+      return null;
+    }
+
+    const template = JSON.parse(rawTemplate) as StoredGeneratedTemplate;
+
+    if (!isSupportedTemplateImageSrc(template.imageSrc)) {
+      return null;
+    }
+
+    return {
+      id: `ai-generated-${template.createdAt ?? "latest"}`,
+      title: template.title?.trim() || "AI生成エフェメラ",
+      description: "AI生成画面から持ち越したテンプレート",
+      accent: "bg-[#c9d7d2]",
+      imageSrc: template.imageSrc,
+      imageFit: "contain",
+    } satisfies EphemeraBase;
+  } catch {
+    return null;
+  }
+}
+
 export default function ScrapbookPage() {
+  const router = useRouter();
   const [selectedBaseId, setSelectedBaseId] = useState<BaseId>("receipt");
+  const [importedBase, setImportedBase] = useState<EphemeraBase | null>(null);
   const [layers, setLayers] = useState<EphemeraLayer[]>([
     {
       id: "text-1",
       type: "text",
-      text: "今日だけの記録",
+      text: "テキスト",
       color: "#2b241f",
-      fontSize: 24,
+      fontSize: 20,
       fontFamily: "serif",
       fontWeight: "700",
       fontStyle: "normal",
       textAlign: "center",
       x: 72,
       y: 64,
-      width: 260,
-      height: 56,
+      width: 220,
+      height: 48,
       rotation: 0,
       zIndex: 1,
     },
@@ -459,6 +513,19 @@ export default function ScrapbookPage() {
   const undoStack = useRef<EditorSnapshot[]>([]);
 
   useEffect(() => {
+    const nextBase = readGeneratedTemplateBase();
+
+    if (!nextBase) {
+      return;
+    }
+
+    queueMicrotask(() => {
+      setImportedBase(nextBase);
+      setSelectedBaseId(nextBase.id);
+    });
+  }, []);
+
+  useEffect(() => {
     setSelectedTarget(selectedId ? layerRefs.current[selectedId] ?? null : null);
   }, [selectedId, layers.length]);
 
@@ -483,7 +550,13 @@ export default function ScrapbookPage() {
     };
   }, []);
 
-  const selectedBase = bases.find((base) => base.id === selectedBaseId) ?? bases[0];
+  const availableBases = useMemo(
+    () => (importedBase ? [importedBase, ...bases] : bases),
+    [importedBase],
+  );
+  const selectedBase =
+    availableBases.find((base) => base.id === selectedBaseId) ??
+    availableBases[0];
 
   const assets = useMemo(
     () => [...mockAssets, ...uploadedAssets],
@@ -927,7 +1000,11 @@ export default function ScrapbookPage() {
     context.fillRect(0, 0, canvas.width, canvas.height);
 
     const baseImage = await loadCanvasImage(selectedBase.imageSrc);
-    drawImageCover(context, baseImage, 0, 0, canvas.width, canvas.height);
+    if (selectedBase.imageFit === "contain") {
+      drawImageContain(context, baseImage, 0, 0, canvas.width, canvas.height);
+    } else {
+      drawImageCover(context, baseImage, 0, 0, canvas.width, canvas.height);
+    }
 
     const sortedLayers = [...layers].sort(
       (first, second) => first.zIndex - second.zIndex,
@@ -1129,6 +1206,7 @@ export default function ScrapbookPage() {
       setSavedEphemeraName(trimmedName);
       setSavedEphemeraUrl(result.url ?? null);
       setIsSaveDialogOpen(false);
+      router.push("/ephemera");
     } catch (error) {
       setExportError(
         error instanceof Error
@@ -1238,12 +1316,12 @@ export default function ScrapbookPage() {
                   </p>
                 </div>
                 <span className="text-xs font-medium text-stone-500">
-                  {bases.length}件
+                  {availableBases.length}件
                 </span>
               </div>
 
               <div className="mt-4 space-y-2">
-                {bases.map((base) => {
+                {availableBases.map((base) => {
                   const isSelected = selectedBaseId === base.id;
 
                   return (
@@ -1264,7 +1342,11 @@ export default function ScrapbookPage() {
                         <img
                           src={base.imageSrc}
                           alt=""
-                          className="h-full w-full object-cover"
+                          className={`h-full w-full ${
+                            base.imageFit === "contain"
+                              ? "object-contain"
+                              : "object-cover"
+                          }`}
                           draggable={false}
                         />
                       </span>
@@ -1489,7 +1571,11 @@ export default function ScrapbookPage() {
                 <img
                   src={selectedBase.imageSrc}
                   alt=""
-                  className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+                  className={`pointer-events-none absolute inset-0 h-full w-full ${
+                    selectedBase.imageFit === "contain"
+                      ? "object-contain"
+                      : "object-cover"
+                  }`}
                   draggable={false}
                 />
 

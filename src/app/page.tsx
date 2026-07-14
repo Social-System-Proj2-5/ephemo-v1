@@ -153,36 +153,28 @@ export default function Home() {
           </button>
         </header>
 
-        <div className="flex flex-1 items-center py-8">
-          <section className="mx-auto w-full max-w-3xl space-y-8">
+        <div className="flex flex-1 justify-center pt-10 sm:pt-14">
+          <section className="mx-auto w-full max-w-5xl space-y-6">
             {claimMessage ? (
-              <p className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              <p className="max-w-2xl rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                 {claimMessage}
               </p>
             ) : null}
 
-            <div className="space-y-4">
-              <p className="text-sm font-medium text-stone-600">
-                写真・動画・音声から日々の記録を残す
-              </p>
-              <h2 className="text-4xl font-semibold leading-tight tracking-normal sm:text-5xl">
-                対面で交換できる小さな記憶を、エフェメラとして集める。
-              </h2>
-              <p className="text-base leading-7 text-stone-700">
-                アップロードした素材やAIで作ったエフェメラを保存し、自分だけの日々の記録として残します。
-              </p>
-            </div>
+            <p className="max-w-3xl text-left text-xl font-semibold leading-8 text-stone-800 sm:text-2xl">
+              日々の記憶をエフェメラとして残し、近くの人とその場で共有します。作成、受け取り、共有履歴の確認をここから始められます。
+            </p>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <Link
                 href="/ephemera"
-                className="flex min-h-32 items-center justify-between rounded-lg bg-emerald-700 p-5 text-white shadow-sm transition hover:bg-emerald-800"
+                className="flex min-h-28 items-center justify-between rounded-lg bg-emerald-700 p-5 text-white shadow-sm transition hover:bg-emerald-800"
               >
                 <span>
                   <span className="block text-sm font-medium text-emerald-100">
                     Collection
                   </span>
-                  <span className="mt-1 block text-xl font-semibold">
+                  <span className="mt-1 block text-lg font-semibold">
                     エフェメラ一覧
                   </span>
                 </span>
@@ -192,13 +184,13 @@ export default function Home() {
               </Link>
               <Link
                 href="/ephemera/transfers"
-                className="flex min-h-32 items-center justify-between rounded-lg bg-sky-700 p-5 text-white shadow-sm transition hover:bg-sky-800"
+                className="flex min-h-28 items-center justify-between rounded-lg bg-sky-700 p-5 text-white shadow-sm transition hover:bg-sky-800"
               >
                 <span>
                   <span className="block text-sm font-medium text-sky-100">
                     Transfers
                   </span>
-                  <span className="mt-1 block text-xl font-semibold">
+                  <span className="mt-1 block text-lg font-semibold">
                     共有履歴
                   </span>
                 </span>
@@ -208,13 +200,13 @@ export default function Home() {
               </Link>
               <Link
                 href="/ephemera/create"
-                className="flex min-h-32 items-center justify-between rounded-lg bg-stone-950 p-5 text-white shadow-sm transition hover:bg-stone-800"
+                className="flex min-h-28 items-center justify-between rounded-lg bg-stone-950 p-5 text-white shadow-sm transition hover:bg-stone-800"
               >
                 <span>
                   <span className="block text-sm font-medium text-stone-300">
                     Create
                   </span>
-                  <span className="mt-1 block text-xl font-semibold">
+                  <span className="mt-1 block text-lg font-semibold">
                     エフェメラ作成
                   </span>
                 </span>
@@ -224,13 +216,13 @@ export default function Home() {
               </Link>
               <Link
                 href="/ephemera/ai-create"
-                className="flex min-h-32 items-center justify-between rounded-lg border border-stone-300 bg-white p-5 text-stone-950 shadow-sm transition hover:bg-stone-100"
+                className="flex min-h-28 items-center justify-between rounded-lg border border-stone-300 bg-white p-5 text-stone-950 shadow-sm transition hover:bg-stone-100"
               >
                 <span>
                   <span className="block text-sm font-medium text-stone-500">
                     AI Create
                   </span>
-                  <span className="mt-1 block text-xl font-semibold">
+                  <span className="mt-1 block text-lg font-semibold">
                     AIによるエフェメラ作成
                   </span>
                 </span>
