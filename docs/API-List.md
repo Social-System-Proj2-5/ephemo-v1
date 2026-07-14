@@ -42,9 +42,11 @@
 | `src/app/signup/page.tsx` | 新規登録画面 | `POST /api/auth/signup` |
 | `src/app/login/page.tsx` | ログイン画面 | `POST /api/auth/login` |
 | `src/app/page.tsx` | ホーム画面、セッション確認、ログアウト、共有受取、共有履歴画面への遷移 | Supabase client, `POST /api/ephemera/share/claim` |
-| `src/app/ephemera/page.tsx` | エフェメラ一覧・共有開始画面 | `GET /api/ephemera`, `POST /api/ephemera/share` |
+| `src/app/ephemera/page.tsx` | エフェメラ一覧・詳細モーダル・共有開始画面 | `GET /api/ephemera`, `GET /api/ephemera/{ephemera_id}`, `POST /api/ephemera/share` |
+| `src/app/ephemera/_components/EphemeraDetailDialog.tsx` | 一覧上に表示するエフェメラ詳細モーダル | `GET /api/ephemera/{ephemera_id}` |
 | `src/app/ephemera/[ephemeraId]/page.tsx` | エフェメラ詳細画面 | `GET /api/ephemera/{ephemera_id}` |
-| `src/app/ephemera/transfers/page.tsx` | 共有履歴一覧画面 | `GET /api/ephemera/transfers` |
+| `src/app/ephemera/transfers/page.tsx` | 共有履歴一覧・詳細モーダル画面 | `GET /api/ephemera/transfers`, `GET /api/ephemera/transfers/{record_id}` |
+| `src/app/ephemera/transfers/_components/TransferRecordDetailDialog.tsx` | 一覧上に表示する共有履歴詳細モーダル | `GET /api/ephemera/transfers/{record_id}` |
 | `src/app/ephemera/transfers/[recordId]/page.tsx` | 共有履歴詳細画面 | `GET /api/ephemera/transfers/{record_id}` |
 | `src/app/ephemera/create/page.tsx` | 手動エフェメラ作成画面 | `POST /api/ephemera/save-image` |
 | `src/app/ephemera/ai-create/page.tsx` | AIエフェメラ作成画面 | `POST /api/ephemera/generate`, `POST /api/ephemera/save-generated` |

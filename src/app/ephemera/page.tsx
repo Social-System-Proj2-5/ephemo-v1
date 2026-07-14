@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { EphemeraDetailDialog } from "@/app/ephemera/_components/EphemeraDetailDialog";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 type EphemeraItem = {
@@ -84,6 +85,9 @@ export default function EphemeraPage() {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [shareDialog, setShareDialog] = useState<ShareDialogState | null>(null);
+  const [selectedEphemeraId, setSelectedEphemeraId] = useState<string | null>(
+    null,
+  );
   const [sharingId, setSharingId] = useState<string | null>(null);
   const [shareMessage, setShareMessage] = useState("");
 
@@ -283,12 +287,13 @@ export default function EphemeraPage() {
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <Link
-                      href={`/ephemera/${item.id}`}
+                    <button
+                      type="button"
                       className="flex min-h-10 items-center justify-center rounded-md border border-stone-300 bg-white px-2 py-2 text-center text-sm font-medium transition hover:bg-stone-100"
+                      onClick={() => setSelectedEphemeraId(item.id)}
                     >
                       詳細を見る
-                    </Link>
+                    </button>
                     <button
                       className="min-h-10 rounded-md bg-stone-950 px-2 py-2 text-sm font-medium text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
                       disabled={sharingId === item.id}
@@ -303,6 +308,13 @@ export default function EphemeraPage() {
           </section>
         )}
       </div>
+
+      {selectedEphemeraId ? (
+        <EphemeraDetailDialog
+          ephemeraId={selectedEphemeraId}
+          onClose={() => setSelectedEphemeraId(null)}
+        />
+      ) : null}
 
       {shareDialog ? (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-5 py-8">
