@@ -176,6 +176,12 @@ export default function EphemeraPage() {
                     有効期限 {formatDate(item.expires_at)} / 残り
                     {getRemainingDays(item.expires_at)}日
                   </p>
+                  <Link
+                    href={`/ephemera/${item.id}`}
+                    className="mt-4 inline-block text-sm font-semibold text-stone-900 underline decoration-stone-400 underline-offset-4"
+                  >
+                    詳細を見る
+                  </Link>
                 </div>
               </article>
             ))}
