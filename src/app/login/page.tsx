@@ -22,13 +22,18 @@ export default function LoginPage() {
 
   useEffect(() => {
     async function redirectAuthenticatedUser() {
+      const shareToken = new URLSearchParams(window.location.search).get(
+        "share",
+      );
       const supabase = getSupabaseClient();
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
       if (session) {
-        router.replace("/");
+        router.replace(
+          shareToken ? `/?share=${encodeURIComponent(shareToken)}` : "/",
+        );
       }
     }
 
@@ -67,7 +72,8 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/");
+    const shareToken = new URLSearchParams(window.location.search).get("share");
+    router.push(shareToken ? `/?share=${encodeURIComponent(shareToken)}` : "/");
     router.refresh();
   }
 
