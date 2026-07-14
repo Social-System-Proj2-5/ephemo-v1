@@ -165,35 +165,37 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[#f7f4ef] text-stone-950">
       <section className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 py-6 sm:px-8 lg:px-10">
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-300 pb-4">
-          <div>
+        <header className="flex items-center justify-between gap-3 border-b border-stone-300 pb-4">
+          <div className="min-w-0">
             <p className="text-sm font-medium text-emerald-700">Ephemo</p>
             <h1 className="text-2xl font-semibold tracking-normal">エフェモ</h1>
           </div>
-          {profile && (
-            <div className="ml-auto text-right">
-              <p className="text-sm font-semibold text-stone-900">
-                {profile.displayName || `@${profile.username}`}
-              </p>
-              <p className="text-xs font-medium text-stone-600">
-                @{profile.username} / {profile.points} points
-              </p>
-            </div>
-          )}
-          <button
-            className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-100"
-            onClick={async () => {
-              const supabase = getSupabaseClient();
-              await supabase.auth.signOut();
-              router.replace("/login");
-            }}
-          >
-            ログアウト
-          </button>
+          <div className="flex shrink-0 items-center gap-3">
+            {profile && (
+              <div className="text-right">
+                <p className="text-sm font-semibold text-stone-900">
+                  {profile.displayName || `@${profile.username}`}
+                </p>
+                <p className="text-xs font-medium text-stone-600">
+                  @{profile.username} / {profile.points} points
+                </p>
+              </div>
+            )}
+            <button
+              className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-100"
+              onClick={async () => {
+                const supabase = getSupabaseClient();
+                await supabase.auth.signOut();
+                router.replace("/login");
+              }}
+            >
+              ログアウト
+            </button>
+          </div>
         </header>
 
         <div className="flex flex-1 justify-center pt-10 sm:pt-14">
-          <section className="mx-auto w-full max-w-5xl space-y-6">
+          <section className="mx-auto w-full max-w-6xl space-y-6">
             {claimMessage ? (
               <p className="max-w-2xl rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                 {claimMessage}

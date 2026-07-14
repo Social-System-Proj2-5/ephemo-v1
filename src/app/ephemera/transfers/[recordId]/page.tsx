@@ -130,15 +130,15 @@ export default function TransferHistoryDetailPage() {
 
   return (
     <main className="min-h-screen bg-[#f7f4ef] px-5 py-6 text-stone-950 sm:px-8 lg:px-10">
-      <div className="mx-auto max-w-4xl">
-        <header className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-stone-300 pb-4">
-          <div>
+      <div className="mx-auto max-w-6xl">
+        <header className="mb-8 flex items-center justify-between gap-3 border-b border-stone-300 pb-4">
+          <div className="min-w-0">
             <p className="text-sm font-medium text-emerald-700">Transfer</p>
             <h1 className="text-2xl font-semibold tracking-normal">
               共有履歴詳細
             </h1>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex shrink-0 flex-wrap justify-end gap-2">
             <Link
               href="/ephemera/transfers"
               className="rounded-md border border-stone-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-stone-100"

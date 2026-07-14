@@ -78,11 +78,12 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f7f4ef] px-5 py-10 text-stone-950">
-      <section className="w-full max-w-md rounded-lg border border-stone-300 bg-white p-6 shadow-sm">
+    <main className="min-h-screen bg-[#f7f4ef] px-5 py-10 text-stone-950 sm:px-8 lg:px-10">
+      <section className="mx-auto flex min-h-screen w-full max-w-6xl items-center justify-center">
+        <div className="w-full max-w-md rounded-lg border border-stone-300 bg-white p-6 shadow-sm">
         <div className="mb-6">
           <p className="text-sm font-medium text-emerald-700">Ephemo</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-normal">
+          <h1 className="text-2xl font-semibold tracking-normal">
             ログイン
           </h1>
         </div>
@@ -133,6 +134,7 @@ export default function LoginPage() {
           <Link className="font-medium text-emerald-700" href="/signup">
             新規登録
           </Link>
+        </div>
         </div>
       </section>
     </main>
