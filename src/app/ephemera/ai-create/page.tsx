@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
@@ -47,32 +48,32 @@ type RecommendedStyle = {
 
 const recommendedStyles: RecommendedStyle[] = [
   {
-    label: "古い切符風",
-    prompt: "Victorian antique ticket",
+    label: "装飾的な切符風",
+    prompt: "Decorative ticket label with elegant borders and a balanced color palette",
   },
   {
     label: "植物標本ラベル風",
-    prompt: "Botanical specimen label",
+    prompt: "Botanical specimen label with clean paper tones and fresh green accents",
   },
   {
-    label: "昔の領収書風",
-    prompt: "Antique receipt",
+    label: "領収書ラベル風",
+    prompt: "Receipt-inspired label with crisp layout and modern paper tones",
   },
   {
     label: "郵便コラージュ風",
-    prompt: "Vintage postal collage",
+    prompt: "Postal collage with colorful stamps, layered paper, and clear graphic contrast",
   },
 ];
 
 const improvementSuggestions: ImprovementSuggestion[] = [
   {
-    label: "もっと古い紙と染みを強くしますか？",
-    atmosphere: "紙の黄ばみ、折れ跡、破れた縁、コーヒー染み、退色したインクをより強くする",
+    label: "もっと色と質感を強くしますか？",
+    atmosphere: "指定された世界観に合う色の差、紙の手触り、印刷のかすれ、細かな素材感を強める",
   },
   {
     label: "もっと装飾的な切符のようにしますか？",
-    atmosphere: "細い飾り罫、番号印字、穴あき加工、古い活版印刷の余白を増やす",
-    style: "Ornate antique ticket",
+    atmosphere: "細い飾り罫、番号印字、穴あき加工、余白のリズム、整った版面構成を増やす",
+    style: "Ornate decorative ticket",
   },
   {
     label: "もっと植物図鑑のようにしますか？",
@@ -82,14 +83,15 @@ const improvementSuggestions: ImprovementSuggestion[] = [
   },
   {
     label: "もっとコラージュ感を出しますか？",
-    atmosphere: "紙片の重なり、スタンプ、古い封筒、マスキングテープ、手作りのコラージュ感を強める",
-    style: "Vintage postal collage",
+    atmosphere: "紙片の重なり、スタンプ、封筒、マスキングテープ、手作りのコラージュ感を強める",
+    style: "Colorful postal collage",
   },
 ];
 
 const generatedTemplateStorageKey = "ephemo:generated-template";
 
 export default function AiEphemeraCreatePage() {
+  const router = useRouter();
   const [ephemeraText, setEphemeraText] = useState("");
   const [illustration, setIllustration] = useState("");
   const [sourceImage, setSourceImage] = useState<File | null>(null);
@@ -101,6 +103,7 @@ export default function AiEphemeraCreatePage() {
   const [error, setError] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isPreparingEdit, setIsPreparingEdit] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [pointsBalance, setPointsBalance] = useState<number | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -120,6 +123,7 @@ export default function AiEphemeraCreatePage() {
     () => (sourceImage ? URL.createObjectURL(sourceImage) : ""),
     [sourceImage],
   );
+  const isActionPending = isSaving || isPreparingEdit;
 
   useEffect(() => {
     if (!sourceImagePreview) {
@@ -258,10 +262,11 @@ export default function AiEphemeraCreatePage() {
   }
 
   async function saveGeneratedEphemera() {
-    if (!generated || isSaving) {
+    if (!generated || isActionPending) {
       return;
     }
 
+    let didNavigate = false;
     setIsSaving(true);
     setError("");
     setSaveMessage("");
@@ -298,10 +303,14 @@ export default function AiEphemeraCreatePage() {
       }
 
       setSaveMessage("画像を保存しました。");
+      didNavigate = true;
+      router.push("/ephemera");
     } catch {
       setError("画像の保存に失敗しました。Supabase の設定を確認してください。");
     } finally {
-      setIsSaving(false);
+      if (!didNavigate) {
+        setIsSaving(false);
+      }
     }
   }
 
@@ -345,7 +354,7 @@ export default function AiEphemeraCreatePage() {
 
   function rememberGeneratedTemplateForEditing() {
     if (!previewSrc) {
-      return;
+      return false;
     }
 
     try {
@@ -357,9 +366,27 @@ export default function AiEphemeraCreatePage() {
           createdAt: Date.now(),
         }),
       );
+      return true;
     } catch {
       setError("画像を次の編集画面へ渡せませんでした。もう一度お試しください。");
+      return false;
     }
+  }
+
+  function editGeneratedEphemera() {
+    if (isActionPending) {
+      return;
+    }
+
+    setIsPreparingEdit(true);
+    setError("");
+
+    if (!rememberGeneratedTemplateForEditing()) {
+      setIsPreparingEdit(false);
+      return;
+    }
+
+    router.push("/ephemera/create");
   }
 
   function generateFromSidebar() {
@@ -530,7 +557,7 @@ export default function AiEphemeraCreatePage() {
                     setIllustration(event.target.value);
                   }}
                   className="mt-2 w-full rounded-md border border-stone-300 bg-white px-3 py-3 text-sm outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-600"
-                  placeholder="例: 星空を走る古い蒸気機関車"
+                  placeholder="例: 星空を走る蒸気機関車"
                 />
               </div>
 
@@ -718,18 +745,19 @@ export default function AiEphemeraCreatePage() {
                     <button
                       type="button"
                       onClick={saveGeneratedEphemera}
-                      disabled={isSaving}
+                      disabled={isActionPending}
                       className="block w-full rounded-md bg-stone-950 px-4 py-3 text-center text-sm font-medium text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {isSaving ? "保存中..." : "画像を保存する"}
                     </button>
-                    <Link
-                      href="/ephemera/create"
-                      onClick={rememberGeneratedTemplateForEditing}
-                      className="block w-full rounded-md border border-stone-300 bg-white px-4 py-3 text-center text-sm font-medium text-stone-950 transition hover:bg-stone-100"
+                    <button
+                      type="button"
+                      onClick={editGeneratedEphemera}
+                      disabled={isActionPending}
+                      className="block w-full rounded-md border border-stone-300 bg-white px-4 py-3 text-center text-sm font-medium text-stone-950 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      さらに編集する
-                    </Link>
+                      {isPreparingEdit ? "編集中..." : "さらに編集する"}
+                    </button>
                   </div>
                 </div>
               )}

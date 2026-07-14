@@ -26,7 +26,7 @@ type OpenAIImagesResponse = {
 };
 
 const EPHEMERA_PROMPT_PREFIX =
-  "Create one complete vintage ephemera image, highly detailed. Show the entire ephemera object fully inside the image without cropping.";
+  "Create one complete ephemera-style printed object, such as a ticket, label, card, tag, receipt-like paper object, sticker, or small keepsake, highly detailed. Show the entire ephemera object fully inside the image without cropping. Do not default to antique, vintage, sepia, brown, yellowed, stained, or aged paper unless the user specifically requests it; choose the palette from the user's text, illustration, photo, and style direction.";
 const AI_GENERATION_POINT_COST = 2;
 
 function getBearerToken(request: Request) {
@@ -140,7 +140,7 @@ export async function POST(request: Request) {
       ? `Illustration to generate and incorporate into the ephemera: ${illustration}.`
       : "",
     atmosphere
-      ? `Overall atmosphere, palette, aging, texture, and composition direction only. Do not write these atmosphere words as visible text: ${atmosphere}.`
+      ? `Overall atmosphere, palette, texture, and composition direction only. Do not write these atmosphere words as visible text: ${atmosphere}.`
       : "",
   ]
     .filter(Boolean)
