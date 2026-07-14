@@ -309,7 +309,7 @@ export default function AiEphemeraCreatePage() {
 
   return (
     <main className="min-h-screen bg-[#f7f4ef] px-5 py-6 text-stone-950 sm:px-8 lg:px-10">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-7xl">
         <header className="mb-8 flex flex-col gap-4 border-b border-stone-300 pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-medium text-emerald-700">AI Create</p>
@@ -330,9 +330,15 @@ export default function AiEphemeraCreatePage() {
           </Link>
         </header>
 
-        <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-          <section className="rounded-lg border border-stone-300 bg-white p-5 shadow-sm">
-            <div className="space-y-5">
+        <div className="grid gap-5 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start">
+          <aside className="rounded-lg border border-stone-300 bg-white shadow-sm lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
+            <div className="border-b border-stone-200 px-5 py-4">
+              <p className="text-sm font-semibold text-stone-900">生成条件</p>
+              <p className="mt-1 text-xs leading-5 text-stone-500">
+                作りたい文字、イラスト、雰囲気を調整
+              </p>
+            </div>
+            <div className="space-y-5 p-5">
               <div>
                 <label
                   htmlFor="source-image"
@@ -475,24 +481,24 @@ export default function AiEphemeraCreatePage() {
               </div>
 
               {generated && (
-              <div>
-                <p className="text-sm font-semibold text-stone-800">改善案</p>
-                <div className="mt-2 space-y-2">
-                  {improvementSuggestions.map((suggestion) => (
-                    <button
-                      key={suggestion.label}
-                      type="button"
-                      disabled={isGenerating}
-                      onClick={() => {
-                        applyImprovement(suggestion);
-                      }}
-                      className="block w-full rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-left text-xs font-medium leading-5 text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {suggestion.label}
-                    </button>
-                  ))}
+                <div>
+                  <p className="text-sm font-semibold text-stone-800">改善案</p>
+                  <div className="mt-2 space-y-2">
+                    {improvementSuggestions.map((suggestion) => (
+                      <button
+                        key={suggestion.label}
+                        type="button"
+                        disabled={isGenerating}
+                        onClick={() => {
+                          applyImprovement(suggestion);
+                        }}
+                        className="block w-full rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-left text-xs font-medium leading-5 text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {suggestion.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
               )}
 
               {error && (
@@ -512,15 +518,20 @@ export default function AiEphemeraCreatePage() {
                 {isGenerating ? "生成中..." : "AIでエフェメラを生成"}
               </button>
             </div>
-          </section>
+          </aside>
 
-          <section className="rounded-lg border border-stone-300 bg-white p-5 shadow-sm">
-            <div className="mb-5">
-              <h2 className="text-lg font-semibold">生成プレビュー</h2>
+          <section className="min-w-0">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">生成プレビュー</h2>
+                <p className="mt-1 text-sm text-stone-500">
+                  サイドバーの条件を調整しながら、生成結果を確認
+                </p>
+              </div>
             </div>
 
-            <div className="rounded-md border border-stone-200 bg-[#fbfaf7] p-4">
-              <div className="flex min-h-[520px] w-full items-center justify-center rounded-md border border-dashed border-stone-300 bg-[#efe7d8] p-3">
+            <div className="rounded-lg border border-stone-300 bg-white p-4 shadow-sm">
+              <div className="flex min-h-[68vh] w-full items-center justify-center rounded-md border border-dashed border-stone-300 bg-[#efe7d8] p-4">
                 {isGenerating ? (
                   <div className="px-6 text-center">
                     <p className="text-sm font-semibold text-stone-800">
@@ -535,7 +546,7 @@ export default function AiEphemeraCreatePage() {
                   <img
                     src={previewSrc}
                     alt="生成されたエフェメラ"
-                    className="block h-auto w-full rounded-md object-contain"
+                    className="block max-h-[calc(68vh-2rem)] w-auto max-w-full rounded-md object-contain"
                   />
                 ) : (
                   <div className="mx-auto max-w-sm px-6 text-center">
@@ -543,7 +554,7 @@ export default function AiEphemeraCreatePage() {
                       まだ生成されていません
                     </p>
                     <p className="mt-2 text-xs leading-5 text-stone-600">
-                      左のフォームに説明を入力して、エフェメラ画像を生成してください。
+                      サイドバーに説明を入力して、エフェメラ画像を生成してください。
                     </p>
                   </div>
                 )}
