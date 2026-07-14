@@ -87,6 +87,8 @@ const improvementSuggestions: ImprovementSuggestion[] = [
   },
 ];
 
+const generatedTemplateStorageKey = "ephemo:generated-template";
+
 export default function AiEphemeraCreatePage() {
   const [ephemeraText, setEphemeraText] = useState("");
   const [illustration, setIllustration] = useState("");
@@ -150,7 +152,6 @@ export default function AiEphemeraCreatePage() {
     setIsGenerating(true);
     setError("");
     setSaveMessage("");
-    setSavedFileUrl("");
     setGenerated(null);
 
     try {
@@ -209,7 +210,6 @@ export default function AiEphemeraCreatePage() {
     setIsSaving(true);
     setError("");
     setSaveMessage("");
-    setSavedFileUrl("");
 
     try {
       const supabase = getSupabaseClient();
@@ -243,7 +243,6 @@ export default function AiEphemeraCreatePage() {
       }
 
       setSaveMessage("画像を保存しました。");
-      setSavedFileUrl(result.ephemera.file_url);
     } catch {
       setError("画像の保存に失敗しました。Supabase の設定を確認してください。");
     } finally {
@@ -289,6 +288,25 @@ export default function AiEphemeraCreatePage() {
     return formData;
   }
 
+  function rememberGeneratedTemplateForEditing() {
+    if (!previewSrc) {
+      return;
+    }
+
+    try {
+      sessionStorage.setItem(
+        generatedTemplateStorageKey,
+        JSON.stringify({
+          imageSrc: previewSrc,
+          title: ephemeraName.trim() || "AI生成エフェメラ",
+          createdAt: Date.now(),
+        }),
+      );
+    } catch {
+      setError("画像を次の編集画面へ渡せませんでした。もう一度お試しください。");
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#f7f4ef] px-5 py-6 text-stone-950 sm:px-8 lg:px-10">
       <div className="mx-auto max-w-6xl">
@@ -301,7 +319,7 @@ export default function AiEphemeraCreatePage() {
               </p>
             )}
             <h1 className="text-3xl font-semibold tracking-normal">
-              テキストからエフェメラを生成
+              AIでエフェメラ作成
             </h1>
           </div>
           <Link
@@ -372,14 +390,14 @@ export default function AiEphemeraCreatePage() {
                 >
                   2. エフェメラに入れたいイラスト
                 </label>
-                <textarea
+                <input
                   id="illustration"
-                  rows={4}
+                  type="text"
                   value={illustration}
                   onChange={(event) => {
                     setIllustration(event.target.value);
                   }}
-                  className="mt-2 w-full resize-none rounded-md border border-stone-300 bg-white px-3 py-3 text-sm leading-6 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-600"
+                  className="mt-2 w-full rounded-md border border-stone-300 bg-white px-3 py-3 text-sm outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-600"
                   placeholder="例: 星空を走る古い蒸気機関車"
                 />
               </div>
@@ -561,24 +579,23 @@ export default function AiEphemeraCreatePage() {
                       {saveMessage}
                     </p>
                   )}
-                  {savedFileUrl && (
-                    <a
-                      href={savedFileUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 transition hover:bg-emerald-100"
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={saveGeneratedEphemera}
+                      disabled={isSaving}
+                      className="block w-full rounded-md bg-stone-950 px-4 py-3 text-center text-sm font-medium text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      保存済みファイルを開く
-                    </a>
-                  )}
-                  <button
-                    type="button"
-                    onClick={saveGeneratedEphemera}
-                    disabled={isSaving}
-                    className="block w-full rounded-md bg-stone-950 px-4 py-3 text-center text-sm font-medium text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {isSaving ? "保存中..." : "画像を保存する"}
-                  </button>
+                      {isSaving ? "保存中..." : "画像を保存する"}
+                    </button>
+                    <Link
+                      href="/ephemera/create"
+                      onClick={rememberGeneratedTemplateForEditing}
+                      className="block w-full rounded-md border border-stone-300 bg-white px-4 py-3 text-center text-sm font-medium text-stone-950 transition hover:bg-stone-100"
+                    >
+                      さらに編集する
+                    </Link>
+                  </div>
                 </div>
               )}
             </div>
