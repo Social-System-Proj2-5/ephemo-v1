@@ -206,7 +206,7 @@ export default function Home() {
             <div className="grid gap-3">
               <Link
                 href="/ephemera"
-                className="flex min-h-28 items-center justify-between rounded-lg bg-emerald-700 p-5 text-white shadow-sm transition hover:bg-emerald-800"
+                className="flex min-h-28 items-center justify-between rounded-lg bg-emerald-800 p-5 text-white shadow-sm transition hover:bg-emerald-900"
               >
                 <span className="flex min-w-0 items-center gap-4">
                   <span className="flex size-12 shrink-0 items-center justify-center rounded-md bg-white/15">
@@ -220,7 +220,7 @@ export default function Home() {
                     />
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-sm font-medium text-emerald-100">
+                    <span className="block text-sm font-medium text-emerald-200">
                       Collection
                     </span>
                     <span className="mt-1 block text-lg font-semibold">
@@ -234,7 +234,7 @@ export default function Home() {
               </Link>
               <Link
                 href="/ephemera/transfers"
-                className="flex min-h-28 items-center justify-between rounded-lg bg-sky-700 p-5 text-white shadow-sm transition hover:bg-sky-800"
+                className="flex min-h-28 items-center justify-between rounded-lg bg-sky-800 p-5 text-white shadow-sm transition hover:bg-sky-900"
               >
                 <span className="flex min-w-0 items-center gap-4">
                   <span className="flex size-12 shrink-0 items-center justify-center rounded-md bg-white/15">
@@ -248,7 +248,7 @@ export default function Home() {
                     />
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-sm font-medium text-sky-100">
+                    <span className="block text-sm font-medium text-sky-200">
                       Transfers
                     </span>
                     <span className="mt-1 block text-lg font-semibold">
@@ -262,7 +262,7 @@ export default function Home() {
               </Link>
               <Link
                 href="/ephemera/create"
-                className="flex min-h-28 items-center justify-between rounded-lg bg-stone-950 p-5 text-white shadow-sm transition hover:bg-stone-800"
+                className="flex min-h-28 items-center justify-between rounded-lg bg-stone-950 p-5 text-white shadow-sm transition hover:bg-black"
               >
                 <span className="flex min-w-0 items-center gap-4">
                   <span className="flex size-12 shrink-0 items-center justify-center rounded-md bg-white/15">
@@ -290,10 +290,10 @@ export default function Home() {
               </Link>
               <Link
                 href="/ephemera/ai-create"
-                className="flex min-h-28 items-center justify-between rounded-lg border border-stone-300 bg-white p-5 text-stone-950 shadow-sm transition hover:bg-stone-100"
+                className="flex min-h-28 items-center justify-between rounded-lg border border-slate-300 bg-slate-50 p-5 text-slate-950 shadow-sm transition hover:bg-slate-100"
               >
                 <span className="flex min-w-0 items-center gap-4">
-                  <span className="flex size-12 shrink-0 items-center justify-center rounded-md bg-stone-100">
+                  <span className="flex size-12 shrink-0 items-center justify-center rounded-md bg-slate-200">
                     <Image
                       src="/icons/sparkles.svg"
                       alt=""
@@ -304,7 +304,7 @@ export default function Home() {
                     />
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-sm font-medium text-stone-500">
+                    <span className="block text-sm font-medium text-slate-500">
                       AI Create
                     </span>
                     <span className="mt-1 block text-lg font-semibold">
