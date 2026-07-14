@@ -18,6 +18,7 @@ type BaseId = string;
 type AssetType = "image" | "stamp";
 type LayerType = "text" | AssetType;
 type SaveFormat = "png" | "pdf";
+type MaterialSidebarMode = "base" | "assets";
 
 type PdfTextLine = {
   text: string;
@@ -34,6 +35,8 @@ type EphemeraBase = {
   accent: string;
   imageSrc: string;
   imageFit?: "cover" | "contain";
+  width: number;
+  height: number;
 };
 
 type StoredGeneratedTemplate = {
@@ -96,47 +99,93 @@ type EditorSnapshot = {
   nextLayerId: number;
 };
 
-const exportSize = {
-  width: 1448,
-  height: 1086,
-};
-
 const bases: EphemeraBase[] = [
   {
     id: "receipt",
-    title: "レシート",
-    description: "アップロード済みのレシート型テンプレート",
+    title: "Receipt",
+    description: "Receipt template",
     accent: "bg-[#d8c7a8]",
     imageSrc: "/ephemera/templates/template_receipt.png",
+    width: 823,
+    height: 1086,
   },
   {
     id: "ticket",
-    title: "チケット",
-    description: "アップロード済みのチケット型テンプレート",
+    title: "Ticket",
+    description: "Ticket template",
     accent: "bg-[#c9d7d2]",
     imageSrc: "/ephemera/templates/template_ticket.png",
+    width: 1448,
+    height: 1086,
   },
   {
-    id: "card",
-    title: "タグ",
-    description: "アップロード済みのタグ型テンプレート",
+    id: "tag",
+    title: "Tag",
+    description: "Tag template",
     accent: "bg-[#d5c7da]",
     imageSrc: "/ephemera/templates/template_tag.png",
+    width: 813,
+    height: 1086,
+  },
+  {
+    id: "admission-ticket",
+    title: "Admission",
+    description: "Admission ticket template",
+    accent: "bg-[#d5baa1]",
+    imageSrc: "/ephemera/templates/template_admission_ticket.png",
+    width: 1536,
+    height: 1024,
+  },
+  {
+    id: "bookmark",
+    title: "Bookmark",
+    description: "Bookmark template",
+    accent: "bg-[#b9c7d8]",
+    imageSrc: "/ephemera/templates/template_bookmark.png",
+    width: 793,
+    height: 1983,
+  },
+  {
+    id: "letter",
+    title: "Letter",
+    description: "Letter template",
+    accent: "bg-[#dad0b9]",
+    imageSrc: "/ephemera/templates/template_letter.png",
+    width: 1086,
+    height: 1448,
+  },
+  {
+    id: "menu",
+    title: "Menu",
+    description: "Menu template",
+    accent: "bg-[#c8d2bc]",
+    imageSrc: "/ephemera/templates/template_menu.png",
+    width: 1086,
+    height: 1448,
+  },
+  {
+    id: "movie",
+    title: "Movie",
+    description: "Movie template",
+    accent: "bg-[#c1c7d6]",
+    imageSrc: "/ephemera/templates/template_movie.png",
+    width: 1448,
+    height: 1086,
+  },
+  {
+    id: "note",
+    title: "Note",
+    description: "Note template",
+    accent: "bg-[#d3c4a7]",
+    imageSrc: "/ephemera/templates/template_note.png",
+    width: 1085,
+    height: 1449,
   },
 ];
 
 const generatedTemplateStorageKey = "ephemo:generated-template";
 
 const mockAssets: EphemeraAsset[] = [
-  {
-    id: "sample-image",
-    type: "image",
-    title: "サンプル画像",
-    description: "エフェメラに重ねる写真素材",
-    accent: "bg-[#9fb6c9]",
-    mediaSrc: "/image_sample.jpg",
-    defaultSize: { width: 220, height: 160 },
-  },
   {
     id: "stamp-visited",
     type: "stamp",
@@ -446,6 +495,8 @@ function readGeneratedTemplateBase() {
       accent: "bg-[#c9d7d2]",
       imageSrc: template.imageSrc,
       imageFit: "contain",
+      width: 1448,
+      height: 1086,
     } satisfies EphemeraBase;
   } catch {
     return null;
@@ -479,10 +530,12 @@ export default function ScrapbookPage() {
   const [selectedTarget, setSelectedTarget] = useState<HTMLDivElement | null>(
     null,
   );
-  const [expandedAssetTypes, setExpandedAssetTypes] = useState<AssetType[]>([
-    "image",
-    "stamp",
-  ]);
+  const [pendingBaseId, setPendingBaseId] = useState<BaseId | null>(null);
+  const [isMaterialSidebarOpen, setIsMaterialSidebarOpen] = useState(false);
+  const [materialSidebarMode, setMaterialSidebarMode] =
+    useState<MaterialSidebarMode>("assets");
+  const [isSelectionToolbarOpen, setIsSelectionToolbarOpen] = useState(false);
+  const [expandedAssetTypes, setExpandedAssetTypes] = useState<AssetType[]>([]);
   const [uploadedAssets, setUploadedAssets] = useState<EphemeraAsset[]>([]);
   const [previewAssetId, setPreviewAssetId] = useState<string | null>(null);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
@@ -510,6 +563,7 @@ export default function ScrapbookPage() {
   const textEditUndoSnapshot = useRef<EditorSnapshot | null>(null);
   const textEditDraft = useRef<{ id: string; text: string } | null>(null);
   const saveNameInputRef = useRef<HTMLInputElement | null>(null);
+  const hasCenteredInitialText = useRef(false);
   const undoStack = useRef<EditorSnapshot[]>([]);
 
   useEffect(() => {
@@ -528,6 +582,53 @@ export default function ScrapbookPage() {
   useEffect(() => {
     setSelectedTarget(selectedId ? layerRefs.current[selectedId] ?? null : null);
   }, [selectedId, layers.length]);
+
+  useEffect(() => {
+    const board = boardRef.current;
+
+    if (!board || hasCenteredInitialText.current) {
+      return;
+    }
+
+    function centerInitialText() {
+      if (!board || hasCenteredInitialText.current) {
+        return;
+      }
+
+      const boardWidth = board.clientWidth;
+      const boardHeight = board.clientHeight;
+
+      if (!boardWidth || !boardHeight) {
+        return;
+      }
+
+      hasCenteredInitialText.current = true;
+      setLayers((current) =>
+        current.map((item) =>
+          item.id === "text-1"
+            ? {
+                ...item,
+                x: Math.round((boardWidth - item.width) / 2),
+                y: Math.round((boardHeight - item.height) / 2),
+              }
+            : item,
+        ),
+      );
+
+      requestAnimationFrame(() => {
+        moveableRef.current?.updateRect();
+      });
+    }
+
+    centerInitialText();
+
+    const observer = new ResizeObserver(centerInitialText);
+    observer.observe(board);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     if (!isSaveDialogOpen) {
@@ -557,6 +658,18 @@ export default function ScrapbookPage() {
   const selectedBase =
     availableBases.find((base) => base.id === selectedBaseId) ??
     availableBases[0];
+  const selectedExportSize = {
+    width: selectedBase.width,
+    height: selectedBase.height,
+  };
+  const selectedBaseRatio = selectedBase.width / selectedBase.height;
+  const selectedBoardMaxWidth =
+    selectedBaseRatio < 1
+      ? Math.max(260, Math.round(760 * selectedBaseRatio))
+      : 760;
+  const pendingBase = pendingBaseId
+    ? availableBases.find((base) => base.id === pendingBaseId) ?? null
+    : null;
 
   const assets = useMemo(
     () => [...mockAssets, ...uploadedAssets],
@@ -589,6 +702,25 @@ export default function ScrapbookPage() {
   const selectedLayer = selectedId
     ? layers.find((layer) => layer.id === selectedId) ?? null
     : null;
+  const selectedToolbarPosition = selectedLayer
+    ? {
+        left: `min(max(${Math.round(
+          selectedLayer.x + selectedLayer.width / 2,
+        )}px, 24px), calc(100% - 24px))`,
+        top:
+          selectedLayer.y > 88
+            ? Math.max(12, selectedLayer.y - 58)
+            : selectedLayer.y + selectedLayer.height + 14,
+      }
+    : undefined;
+  const selectedToolbarButtonPosition = selectedLayer
+    ? {
+        left: `min(max(${Math.round(
+          selectedLayer.x + selectedLayer.width + 8,
+        )}px, 8px), calc(100% - 56px))`,
+        top: Math.max(8, selectedLayer.y - 36),
+      }
+    : undefined;
 
   function createSnapshot(currentLayers = layers): EditorSnapshot {
     return {
@@ -677,15 +809,37 @@ export default function ScrapbookPage() {
   function selectLayer(id: string) {
     setSelectedId(id);
     setSelectedTarget(layerRefs.current[id] ?? null);
+    setIsSelectionToolbarOpen(false);
   }
 
-  function changeBase(id: BaseId) {
+  function clearSelection() {
+    setSelectedId(null);
+    setSelectedTarget(null);
+    setIsSelectionToolbarOpen(false);
+  }
+
+  function requestBaseChange(id: BaseId) {
     if (id === selectedBaseId) {
       return;
     }
 
+    setIsMaterialSidebarOpen(false);
+    setPendingBaseId(id);
+  }
+
+  function confirmBaseChange() {
+    if (!pendingBaseId || pendingBaseId === selectedBaseId) {
+      setPendingBaseId(null);
+      return;
+    }
+
     pushUndoSnapshot();
-    setSelectedBaseId(id);
+    setSelectedBaseId(pendingBaseId);
+    setPendingBaseId(null);
+  }
+
+  function cancelBaseChange() {
+    setPendingBaseId(null);
   }
 
   function addTextLayer() {
@@ -717,6 +871,7 @@ export default function ScrapbookPage() {
     ]);
     setSelectedId(id);
     setNextZIndex((value) => value + 1);
+    setIsMaterialSidebarOpen(false);
   }
 
   function addAssetLayer(asset: EphemeraAsset) {
@@ -742,6 +897,7 @@ export default function ScrapbookPage() {
     ]);
     setSelectedId(id);
     setNextZIndex((value) => value + 1);
+    setIsMaterialSidebarOpen(false);
   }
 
   async function uploadImageAssets(files: FileList | null) {
@@ -817,8 +973,7 @@ export default function ScrapbookPage() {
 
     delete layerRefs.current[selectedId];
     setLayers((current) => current.filter((item) => item.id !== selectedId));
-    setSelectedId(null);
-    setSelectedTarget(null);
+    clearSelection();
     resizeStartDraft.current = null;
     interactionDraft.current = null;
     textEditUndoSnapshot.current = null;
@@ -970,8 +1125,7 @@ export default function ScrapbookPage() {
       commitTextEditing();
     }
 
-    setSelectedId(null);
-    setSelectedTarget(null);
+    clearSelection();
     setEphemeraName(savedEphemeraName ?? ephemeraName);
     setIsSaveDialogOpen(true);
   }
@@ -982,8 +1136,8 @@ export default function ScrapbookPage() {
 
   async function createEphemeraImageBlob(type: "image/jpeg" | "image/png") {
     const canvas = document.createElement("canvas");
-    canvas.width = exportSize.width;
-    canvas.height = exportSize.height;
+    canvas.width = selectedExportSize.width;
+    canvas.height = selectedExportSize.height;
 
     const context = canvas.getContext("2d");
 
@@ -993,8 +1147,8 @@ export default function ScrapbookPage() {
 
     const boardWidth = boardRef.current?.clientWidth || 760;
     const boardHeight = boardRef.current?.clientHeight || 570;
-    const scaleX = exportSize.width / boardWidth;
-    const scaleY = exportSize.height / boardHeight;
+    const scaleX = selectedExportSize.width / boardWidth;
+    const scaleY = selectedExportSize.height / boardHeight;
 
     context.fillStyle = "#ffffff";
     context.fillRect(0, 0, canvas.width, canvas.height);
@@ -1003,7 +1157,7 @@ export default function ScrapbookPage() {
     if (selectedBase.imageFit === "contain") {
       drawImageContain(context, baseImage, 0, 0, canvas.width, canvas.height);
     } else {
-      drawImageCover(context, baseImage, 0, 0, canvas.width, canvas.height);
+      context.drawImage(baseImage, 0, 0, canvas.width, canvas.height);
     }
 
     const sortedLayers = [...layers].sort(
@@ -1081,8 +1235,8 @@ export default function ScrapbookPage() {
   function createPdfTextLines(): PdfTextLine[] {
     const boardWidth = boardRef.current?.clientWidth || 760;
     const boardHeight = boardRef.current?.clientHeight || 570;
-    const scaleX = exportSize.width / boardWidth;
-    const scaleY = exportSize.height / boardHeight;
+    const scaleX = selectedExportSize.width / boardWidth;
+    const scaleY = selectedExportSize.height / boardHeight;
     const measureCanvas = document.createElement("canvas");
     const measureContext = measureCanvas.getContext("2d");
 
@@ -1138,7 +1292,7 @@ export default function ScrapbookPage() {
           return {
             text: line,
             x: canvasX,
-            y: exportSize.height - canvasY,
+            y: selectedExportSize.height - canvasY,
             fontSize,
             rotation: -rotation,
           };
@@ -1173,8 +1327,8 @@ export default function ScrapbookPage() {
       const formData = new FormData();
       formData.append("name", trimmedName);
       formData.append("format", format);
-      formData.append("width", String(exportSize.width));
-      formData.append("height", String(exportSize.height));
+      formData.append("width", String(selectedExportSize.width));
+      formData.append("height", String(selectedExportSize.height));
       formData.append(
         "file",
         imageBlob,
@@ -1247,6 +1401,24 @@ export default function ScrapbookPage() {
         return;
       }
 
+      if (pendingBase) {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          cancelBaseChange();
+        }
+
+        return;
+      }
+
+      if (isMaterialSidebarOpen) {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          setIsMaterialSidebarOpen(false);
+        }
+
+        return;
+      }
+
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
         event.preventDefault();
         undoLastAction();
@@ -1305,22 +1477,55 @@ export default function ScrapbookPage() {
           </Link>
         </header>
 
-        <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
-          <aside className="space-y-4">
+        {isMaterialSidebarOpen && (
+          <button
+            type="button"
+            aria-label="素材パネルを閉じる"
+            className="fixed inset-0 z-30 bg-stone-950/35"
+            onClick={() => {
+              clearSelection();
+              setIsMaterialSidebarOpen(false);
+            }}
+          />
+        )}
+
+        <div className="grid gap-5">
+          <aside
+            className={`space-y-4 ${
+              isMaterialSidebarOpen
+                ? "fixed inset-y-0 left-0 z-40 block w-[min(86vw,360px)] overflow-y-auto bg-[#f7f4ef] p-4 shadow-2xl"
+                : "hidden"
+            }`}
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-base font-semibold">
+                {materialSidebarMode === "base" ? "ベース変更" : "素材を追加"}
+              </h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMaterialSidebarOpen(false);
+                }}
+                className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium transition hover:bg-stone-100"
+              >
+                閉じる
+              </button>
+            </div>
+            {materialSidebarMode === "base" && (
             <section className="rounded-lg border border-stone-300 bg-white p-5 shadow-sm">
               <div className="flex items-end justify-between">
                 <div>
                   <h2 className="text-lg font-semibold">ベース素材</h2>
-                  <p className="mt-1 text-xs text-stone-500">
+                  <p className="hidden">
                     エフェメラの土台になる紙片を選択
                   </p>
                 </div>
-                <span className="text-xs font-medium text-stone-500">
+                <span className="hidden">
                   {availableBases.length}件
                 </span>
               </div>
 
-              <div className="mt-4 space-y-2">
+              <div className="mt-4 grid grid-cols-4 gap-2">
                 {availableBases.map((base) => {
                   const isSelected = selectedBaseId === base.id;
 
@@ -1329,47 +1534,49 @@ export default function ScrapbookPage() {
                       key={base.id}
                       type="button"
                       onClick={() => {
-                        changeBase(base.id);
+                        requestBaseChange(base.id);
                       }}
-                      className={`flex w-full items-center gap-3 rounded-md border px-3 py-3 text-left transition ${
+                      title={base.title}
+                      className={`group relative aspect-square overflow-hidden rounded-md border bg-white transition ${
                         isSelected
-                          ? "border-emerald-700 bg-emerald-50 ring-2 ring-emerald-600"
-                          : "border-stone-200 bg-white hover:bg-stone-50"
+                          ? "border-emerald-700 ring-2 ring-emerald-600"
+                          : "border-stone-200 hover:border-emerald-700"
                       }`}
+                      aria-label={`${base.title}を選択`}
                     >
-                      <span className="h-12 w-16 shrink-0 overflow-hidden rounded-sm border border-stone-200 bg-stone-100">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={base.imageSrc}
-                          alt=""
-                          className={`h-full w-full ${
-                            base.imageFit === "contain"
-                              ? "object-contain"
-                              : "object-cover"
-                          }`}
-                          draggable={false}
-                        />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold">
-                          {base.title}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={base.imageSrc}
+                        alt=""
+                        className={`h-full w-full transition group-hover:scale-[1.03] ${
+                          base.imageFit === "contain"
+                            ? "object-contain"
+                            : "object-cover"
+                        }`}
+                        draggable={false}
+                      />
+                      {isSelected && (
+                        <span className="absolute inset-x-1 bottom-1 rounded bg-emerald-700 px-1 py-0.5 text-center text-[10px] font-medium text-white">
+                          選択中
                         </span>
-                      </span>
+                      )}
                     </button>
                   );
                 })}
               </div>
             </section>
+            )}
 
+            {materialSidebarMode === "assets" && (
             <section className="rounded-lg border border-stone-300 bg-white p-5 shadow-sm">
               <div className="flex items-end justify-between">
                 <div>
                   <h2 className="text-lg font-semibold">配置素材</h2>
-                  <p className="mt-1 text-xs text-stone-500">
+                  <p className="hidden">
                     画像とスタンプを選んで重ねる
                   </p>
                 </div>
-                <span className="text-xs font-medium text-stone-500">
+                <span className="hidden">
                   {assets.length}件
                 </span>
               </div>
@@ -1428,7 +1635,7 @@ export default function ScrapbookPage() {
                             <span className="block truncate text-sm font-semibold">
                               {assetTypeLabels[type]}
                             </span>
-                            <span className="mt-0.5 block text-xs text-stone-500">
+                            <span className="hidden">
                               {categoryAssets.length}件
                             </span>
                           </span>
@@ -1470,6 +1677,7 @@ export default function ScrapbookPage() {
                                   type="button"
                                   onClick={() => {
                                     setPreviewAssetId(asset.id);
+                                    setIsMaterialSidebarOpen(false);
                                   }}
                                   className={`aspect-square w-full overflow-hidden rounded-md border bg-white transition hover:bg-stone-100 ${
                                     isPreviewed
@@ -1508,6 +1716,7 @@ export default function ScrapbookPage() {
                 })}
               </div>
             </section>
+            )}
           </aside>
 
           <section className="min-w-0">
@@ -1532,6 +1741,28 @@ export default function ScrapbookPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => {
+                    clearSelection();
+                    setMaterialSidebarMode("base");
+                    setIsMaterialSidebarOpen(true);
+                  }}
+                  className="rounded-md border border-stone-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-stone-100"
+                >
+                  ベース変更
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearSelection();
+                    setMaterialSidebarMode("assets");
+                    setIsMaterialSidebarOpen(true);
+                  }}
+                  className="rounded-md border border-stone-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-stone-100"
+                >
+                  追加
+                </button>
+                <button
+                  type="button"
                   onClick={undoLastAction}
                   disabled={!canUndo}
                   className="rounded-md border border-stone-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
@@ -1549,21 +1780,23 @@ export default function ScrapbookPage() {
             </div>
 
             <div
-              className="relative min-h-[640px] overflow-auto rounded-md border border-dashed border-stone-300 bg-[#fbfaf7] p-8"
+              className="relative min-h-[640px] overflow-auto rounded-md border border-dashed border-stone-300 bg-[#fbfaf7] p-3 sm:p-8"
               onMouseDown={(event) => {
                 if (event.currentTarget === event.target) {
-                  setSelectedId(null);
-                  setSelectedTarget(null);
+                  clearSelection();
                 }
               }}
             >
               <div
                 ref={boardRef}
-                className="relative mx-auto aspect-[1448/1086] w-full max-w-[760px] overflow-hidden rounded-md border border-stone-300 bg-white shadow-md"
+                className="relative mx-auto w-full overflow-hidden rounded-md border border-stone-300 bg-white shadow-md"
+                style={{
+                  aspectRatio: `${selectedBase.width} / ${selectedBase.height}`,
+                  maxWidth: selectedBoardMaxWidth,
+                }}
                 onMouseDown={(event) => {
                   if (event.currentTarget === event.target) {
-                    setSelectedId(null);
-                    setSelectedTarget(null);
+                    clearSelection();
                   }
                 }}
               >
@@ -1574,7 +1807,7 @@ export default function ScrapbookPage() {
                   className={`pointer-events-none absolute inset-0 h-full w-full ${
                     selectedBase.imageFit === "contain"
                       ? "object-contain"
-                      : "object-cover"
+                      : "object-fill"
                   }`}
                   draggable={false}
                 />
@@ -1728,6 +1961,8 @@ export default function ScrapbookPage() {
                       "se",
                     ]}
                     onDragStart={({ set }: OnDragStart) => {
+                      setIsSelectionToolbarOpen(false);
+
                       if (!selectedId) {
                         return;
                       }
@@ -1942,11 +2177,247 @@ export default function ScrapbookPage() {
                     onRotateEnd={commitInteractionDraft}
                   />
                 )}
+
+                {selectedLayer && (
+                  <button
+                    type="button"
+                    aria-label="編集バーを開く"
+                    onClick={() => {
+                      setIsSelectionToolbarOpen((value) => !value);
+                    }}
+                    className="absolute z-40 flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-stone-300 bg-white/95 text-[0] text-transparent shadow-md backdrop-blur transition hover:bg-stone-100"
+                    style={selectedToolbarButtonPosition}
+                  >
+                    <svg
+                      aria-hidden="true"
+                      viewBox="0 0 24 24"
+                      className="h-4 w-4 shrink-0 text-stone-800"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M4 7h16" />
+                      <path d="M4 17h16" />
+                      <path d="M8 5v4" />
+                      <path d="M16 15v4" />
+                      <circle cx="8" cy="7" r="2" />
+                      <circle cx="16" cy="17" r="2" />
+                    </svg>
+                    編集
+                  </button>
+                )}
+
+                {selectedLayer && isSelectionToolbarOpen && (
+                  <div
+                    className="absolute z-40 w-max max-w-[calc(100%-16px)] -translate-x-1/2 overflow-x-auto rounded-md border border-stone-300 bg-white/95 p-1.5 shadow-xl backdrop-blur"
+                    style={selectedToolbarPosition}
+                  >
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
+                    <span className="hidden">
+                      {selectedLayer.type === "text"
+                        ? "テキスト"
+                        : selectedLayer.assetId
+                          ? assetsById.get(selectedLayer.assetId)?.title
+                          : selectedLayer.id}
+                    </span>
+                    <select
+                      aria-label="配置"
+                      defaultValue=""
+                      onChange={(event) => {
+                        const direction = event.target.value as
+                          | "front"
+                          | "forward"
+                          | "backward"
+                          | "back";
+                        reorderSelectedLayer(direction);
+                        event.currentTarget.value = "";
+                      }}
+                      className="order-last h-8 rounded-md border border-stone-300 bg-white px-2 text-xs font-medium outline-none transition hover:bg-stone-100"
+                    >
+                      <option value="" disabled>
+                        配置
+                      </option>
+                      <option value="front">最前面へ</option>
+                      <option value="forward">前面へ</option>
+                      <option value="backward">背面へ</option>
+                      <option value="back">最背面へ</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        reorderSelectedLayer("front");
+                      }}
+                      className="hidden"
+                    >
+                      最前面
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        reorderSelectedLayer("forward");
+                      }}
+                      className="hidden"
+                    >
+                      前面へ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        reorderSelectedLayer("backward");
+                      }}
+                      className="hidden"
+                    >
+                      背面へ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        reorderSelectedLayer("back");
+                      }}
+                      className="hidden"
+                    >
+                      最背面
+                    </button>
+                    <button
+                      type="button"
+                      onClick={deleteSelectedLayer}
+                      className="hidden"
+                    >
+                      削除
+                    </button>
+
+                    {selectedLayer.type === "text" && (
+                      <>
+                        <label className="flex items-center rounded-md border border-stone-300 bg-white px-1.5">
+                          <span className="sr-only">
+                            フォント
+                          </span>
+                          <select
+                            aria-label="フォント"
+                            value={selectedLayer.fontFamily ?? "serif"}
+                            onChange={(event) => {
+                              updateSelectedText({
+                                fontFamily: event.target.value,
+                              });
+                            }}
+                            className="h-8 max-w-24 bg-transparent text-xs outline-none"
+                          >
+                            <option value="serif">Serif</option>
+                            <option value="sans-serif">Sans</option>
+                            <option value="monospace">Mono</option>
+                            <option value="cursive">Script</option>
+                          </select>
+                        </label>
+
+                        <label className="flex items-center rounded-md border border-stone-300 bg-white px-1.5">
+                          <span className="sr-only">
+                            サイズ
+                          </span>
+                          <input
+                            aria-label="サイズ"
+                            type="number"
+                            min={10}
+                            max={96}
+                            value={selectedLayer.fontSize ?? 20}
+                            onChange={(event) => {
+                              updateSelectedText({
+                                fontSize: Number(event.target.value),
+                              });
+                            }}
+                            className="h-8 w-12 bg-transparent text-xs outline-none"
+                          />
+                        </label>
+
+                        <label className="flex h-8 items-center rounded-md border border-stone-300 bg-white px-1.5">
+                          <span className="sr-only">
+                            色
+                          </span>
+                          <input
+                            aria-label="色"
+                            type="color"
+                            value={selectedLayer.color ?? "#2b241f"}
+                            onChange={(event) => {
+                              updateSelectedText({ color: event.target.value });
+                            }}
+                            className="h-6 w-7 bg-transparent"
+                          />
+                        </label>
+
+                        <div className="flex items-center rounded-md border border-stone-300 bg-white p-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateSelectedText({
+                                fontWeight:
+                                  selectedLayer.fontWeight === "700"
+                                    ? "500"
+                                    : "700",
+                              });
+                            }}
+                            className={`h-6 w-6 rounded text-xs font-bold transition ${
+                              selectedLayer.fontWeight === "700"
+                                ? "bg-emerald-700 text-white"
+                                : "hover:bg-stone-100"
+                            }`}
+                            aria-label="太字"
+                          >
+                            B
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateSelectedText({
+                                fontStyle:
+                                  selectedLayer.fontStyle === "italic"
+                                    ? "normal"
+                                    : "italic",
+                              });
+                            }}
+                            className={`h-6 w-6 rounded text-xs italic transition ${
+                              selectedLayer.fontStyle === "italic"
+                                ? "bg-emerald-700 text-white"
+                                : "hover:bg-stone-100"
+                            }`}
+                            aria-label="斜体"
+                          >
+                            I
+                          </button>
+                        </div>
+
+                        <div className="flex items-center rounded-md border border-stone-300 bg-white p-1">
+                          {(["left", "center", "right"] as const).map((align) => (
+                            <button
+                              key={align}
+                              type="button"
+                              onClick={() => {
+                                updateSelectedText({ textAlign: align });
+                              }}
+                              className={`h-6 min-w-7 rounded px-1.5 text-[11px] font-semibold transition ${
+                                (selectedLayer.textAlign ?? "center") === align
+                                  ? "bg-emerald-700 text-white"
+                                  : "hover:bg-stone-100"
+                              }`}
+                            >
+                              {align === "left"
+                                ? "左"
+                                : align === "center"
+                                  ? "中央"
+                                  : "右"}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
               </div>
             </div>
 
             {selectedLayer && (
-              <div className="mt-4 rounded-md border border-stone-200 bg-stone-50 px-4 py-3">
+              <div className="hidden">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-xs font-medium text-stone-500">
@@ -2129,6 +2600,58 @@ export default function ScrapbookPage() {
           </section>
         </div>
       </div>
+
+      {pendingBase && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/45 px-5 py-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="base-change-dialog-title"
+        >
+          <div className="w-full max-w-md rounded-lg border border-stone-200 bg-white p-5 shadow-xl">
+            <div className="mb-4">
+              <h3
+                id="base-change-dialog-title"
+                className="text-lg font-semibold"
+              >
+                ベース素材を変更しますか
+              </h3>
+              <p className="mt-1 text-sm text-stone-500">
+                配置済みのテキスト、画像、スタンプはそのまま残ります。
+              </p>
+            </div>
+
+            <div className="overflow-hidden rounded-md border border-stone-200 bg-stone-100">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={pendingBase.imageSrc}
+                alt=""
+                className="h-64 w-full object-contain"
+                draggable={false}
+              />
+            </div>
+
+            <p className="mt-3 text-sm font-semibold">{pendingBase.title}</p>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={cancelBaseChange}
+                className="rounded-md border border-stone-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-stone-100"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={confirmBaseChange}
+                className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800"
+              >
+                変更する
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {previewAsset && (
         <div
