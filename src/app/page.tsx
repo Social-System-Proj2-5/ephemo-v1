@@ -11,6 +11,17 @@ type ClaimResponse = {
   error?: string;
 };
 
+type ProfileSummary = {
+  username: string;
+  displayName: string;
+  points: number;
+};
+
+type ProfileResponse = {
+  profile?: ProfileSummary;
+  error?: string;
+};
+
 function getCurrentPosition() {
   return new Promise<GeolocationPosition>((resolve, reject) => {
     if (!navigator.geolocation) {
@@ -31,6 +42,7 @@ export default function Home() {
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [claimMessage, setClaimMessage] = useState("");
   const [isClaimingShare, setIsClaimingShare] = useState(false);
+  const [profile, setProfile] = useState<ProfileSummary | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -111,6 +123,23 @@ export default function Home() {
         }
       }
 
+      try {
+        const response = await fetch("/api/profile/me", {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+        const result = (await response.json()) as ProfileResponse;
+
+        if (isMounted && response.ok && result.profile) {
+          setProfile(result.profile);
+        }
+      } catch {
+        if (isMounted) {
+          setProfile(null);
+        }
+      }
+
       setIsCheckingSession(false);
     }
 
@@ -136,11 +165,21 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[#f7f4ef] text-stone-950">
       <section className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 py-6 sm:px-8 lg:px-10">
-        <header className="flex items-center justify-between border-b border-stone-300 pb-4">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-300 pb-4">
           <div>
             <p className="text-sm font-medium text-emerald-700">Ephemo</p>
             <h1 className="text-2xl font-semibold tracking-normal">エフェモ</h1>
           </div>
+          {profile && (
+            <div className="ml-auto text-right">
+              <p className="text-sm font-semibold text-stone-900">
+                {profile.displayName || `@${profile.username}`}
+              </p>
+              <p className="text-xs font-medium text-stone-600">
+                @{profile.username} / {profile.points} points
+              </p>
+            </div>
+          )}
           <button
             className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-100"
             onClick={async () => {
