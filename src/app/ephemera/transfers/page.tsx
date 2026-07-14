@@ -244,9 +244,17 @@ export default function TransferHistoryPage() {
                       {record.fileType === "pdf" ? "PDF" : "画像"}
                     </p>
                   </div>
-                  <time className="text-sm text-stone-500">
-                    {formatDateTime(record.transferredAt)}
-                  </time>
+                  <div className="flex items-center justify-between gap-4 sm:block sm:text-right">
+                    <time className="text-sm text-stone-500">
+                      {formatDateTime(record.transferredAt)}
+                    </time>
+                    <Link
+                      href={`/ephemera/transfers/${record.id}`}
+                      className="block shrink-0 text-sm font-semibold text-stone-900 underline decoration-stone-400 underline-offset-4 sm:mt-2"
+                    >
+                      詳細を見る
+                    </Link>
+                  </div>
                 </article>
               );
             })}
